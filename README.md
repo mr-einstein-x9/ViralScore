@@ -119,13 +119,20 @@ Built entirely with **Antigravity IDE** (Claude Sonnet 4.6 Thinking) in one sess
 
 ---
 
-## 🌐 Deploy
+## 🌐 Deploy to Vercel
+
+The easiest way to deploy this Next.js app is using the [Vercel Platform](https://vercel.com/new).
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
 
-Live at: **[your-vercel-url.vercel.app](https://your-vercel-url.vercel.app)**
+1. Push your code to a GitHub repository.
+2. Go to Vercel and **Import** the repository.
+3. In the Environment Variables section, add:
+   - `GROQ_API_KEY` = `gsk_your_groq_key`
+   - `NEXT_PUBLIC_APP_URL` = `https://your-domain.vercel.app`
+4. Click **Deploy**.
 
-> Add `GROQ_API_KEY` as an environment variable in your Vercel project settings.
+> **Note:** The app uses Next.js App Router and Edge-compatible API routes, making it perfectly optimized for Vercel's edge network.
 
 ---
 
