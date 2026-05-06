@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Bebas_Neue, DM_Sans } from "next/font/google";
 import "./globals.css";
 
@@ -20,6 +20,9 @@ export const metadata: Metadata = {
   title: "ViralScore — Know Before You Post",
   description:
     "AI-powered content virality analyzer. Score your posts, get actionable feedback, and go viral.",
+};
+
+export const viewport: Viewport = {
   themeColor: "#00ff87",
 };
 

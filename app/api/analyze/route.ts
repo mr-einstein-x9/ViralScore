@@ -12,19 +12,19 @@ type AnalyzeRequestBody = {
 
 // ── Valid option sets for validation ─────────────────────────────────────────
 
-const VALID_CONTENT_TYPES = new Set<AnalyzeRequestBody["contentType"]>([
+const VALID_CONTENT_TYPES: AnalyzeRequestBody["contentType"][] = [
   "caption",
   "video_url",
   "image_url",
-]);
+];
 
-const VALID_PLATFORMS = new Set<AnalyzeRequestBody["platform"]>([
+const VALID_PLATFORMS: AnalyzeRequestBody["platform"][] = [
   "TikTok",
   "Instagram",
   "YouTube",
   "LinkedIn",
   "Twitter/X",
-]);
+];
 
 // ── POST /api/analyze ─────────────────────────────────────────────────────────
 
@@ -44,19 +44,19 @@ export async function POST(request: NextRequest) {
   const { contentType, content, platform, context } = body;
 
   // ── Validate required fields ─────────────────────────────────────────────
-  if (!contentType || !VALID_CONTENT_TYPES.has(contentType)) {
+  if (!contentType || !VALID_CONTENT_TYPES.includes(contentType as any)) {
     return NextResponse.json(
       {
-        error: `Missing or invalid 'contentType'. Must be one of: ${[...VALID_CONTENT_TYPES].join(", ")}.`,
+        error: `Missing or invalid 'contentType'. Must be one of: ${VALID_CONTENT_TYPES.join(", ")}.`,
       },
       { status: 400 }
     );
   }
 
-  if (!platform || !VALID_PLATFORMS.has(platform)) {
+  if (!platform || !VALID_PLATFORMS.includes(platform as any)) {
     return NextResponse.json(
       {
-        error: `Missing or invalid 'platform'. Must be one of: ${[...VALID_PLATFORMS].join(", ")}.`,
+        error: `Missing or invalid 'platform'. Must be one of: ${VALID_PLATFORMS.join(", ")}.`,
       },
       { status: 400 }
     );
