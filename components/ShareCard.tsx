@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Download, Copy, Check, Share2, Loader2 } from "lucide-react";
+import { X, Download, Copy, Check, Share2, Loader2, Zap } from "lucide-react";
 import { toPng } from "html-to-image";
 import type { ViralAnalysis } from "@/lib/gemini";
 
