@@ -2,14 +2,18 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Zap, AlertCircle } from "lucide-react";
+import { Zap, AlertCircle, Clock } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import UploadPanel from "@/components/UploadPanel";
 import ScoreGauge from "@/components/ScoreGauge";
 import MetricsGrid from "@/components/MetricsGrid";
 import SuggestionsList from "@/components/SuggestionsList";
 import HashtagPanel from "@/components/HashtagPanel";
+import HistoryPanel from "@/components/HistoryPanel";
+import ShareCard from "@/components/ShareCard";
+import { saveToHistory, getHistory, HistoryEntry } from "@/lib/history";
 import type { ViralAnalysis } from "@/lib/gemini";
+import { Share2 } from "lucide-react";
 
 // ── Loading messages ──────────────────────────────────────────────────────────
 
@@ -149,9 +153,27 @@ export default function AnalyzePage() {
   const [isLoading, setIsLoading]           = useState(false);
   const [error, setError]                   = useState<string | null>(null);
   const [hasAnalyzed, setHasAnalyzed]       = useState(false);
+  
+  // History state
+  const [historyOpen, setHistoryOpen]       = useState(false);
+  const [historyCount, setHistoryCount]     = useState(0);
+
+  // Share state
+  const [shareOpen, setShareOpen]           = useState(false);
+  const [lastContent, setLastContent]       = useState("");
 
   const loadingMessage = useCyclingMessage(LOADING_MESSAGES, isLoading);
   const resultsRef     = useRef<HTMLDivElement>(null);
+
+  // Load history count
+  useEffect(() => {
+    function updateCount() {
+      setHistoryCount(getHistory().length);
+    }
+    updateCount();
+    window.addEventListener("historyUpdated", updateCount);
+    return () => window.removeEventListener("historyUpdated", updateCount);
+  }, []);
 
   // Mobile: scroll results into view after analysis
   useEffect(() => {
@@ -174,6 +196,7 @@ export default function AnalyzePage() {
     setError(null);
     setHasAnalyzed(true);
     setAnalysisResult(null);
+    setLastContent(data.content);
 
     try {
       const res  = await fetch("/api/analyze", {
@@ -186,13 +209,36 @@ export default function AnalyzePage() {
       if (!res.ok) {
         throw new Error((json as { error?: string }).error ?? "Analysis failed.");
       }
-      setAnalysisResult(json as ViralAnalysis);
+      
+      const resultData = json as ViralAnalysis;
+      setAnalysisResult(resultData);
+
+      // Save to history
+      saveToHistory({
+        platform: data.platform,
+        contentType: data.contentType,
+        contentPreview: data.content.slice(0, 80),
+        result: resultData,
+      });
+      window.dispatchEvent(new Event("historyUpdated"));
+
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
       setIsLoading(false);
     }
   }, []);
+
+  // ── Restore handler ───────────────────────────────────────────────────────
+  
+  const handleRestore = (entry: HistoryEntry) => {
+    setAnalysisResult(entry.result);
+    setLastContent(entry.contentPreview);
+    setHasAnalyzed(true);
+    setHistoryOpen(false);
+    // Note: To perfectly restore input fields in UploadPanel, UploadPanel 
+    // would need to accept controlled props. We restore the result view.
+  };
 
   // ── Reset ─────────────────────────────────────────────────────────────────
 
@@ -341,6 +387,19 @@ export default function AnalyzePage() {
           animate="visible"
           className="flex flex-col gap-5"
         >
+          {/* Share Score Button */}
+          <div className="flex justify-end">
+            <button
+              onClick={() => setShareOpen(true)}
+              className="bg-[#1a1a1a] border border-[#333] text-[#888] 
+                         hover:border-[#00ff87] hover:text-[#00ff87]
+                         px-4 py-2 rounded-xl text-sm flex items-center gap-2 transition-all"
+            >
+              <Share2 className="w-4 h-4" />
+              <span>Share Score</span>
+            </button>
+          </div>
+
           <motion.div variants={resultItemVariants}>
             <ScoreGauge
               overallScore={analysisResult.overallScore}
@@ -393,17 +452,34 @@ export default function AnalyzePage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 sm:pt-24 pb-16 sm:pb-20">
         {/* Page header */}
-        <div className="mb-6 sm:mb-8">
-          <h1
-            className="font-display text-white uppercase leading-none"
-            style={{ fontSize: "clamp(2rem, 5vw, 4rem)" }}
+        <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+          <div>
+            <h1
+              className="font-display text-white uppercase leading-none"
+              style={{ fontSize: "clamp(2rem, 5vw, 4rem)" }}
+            >
+              Analyze Your{" "}
+              <span className="text-[#00ff87]">Content</span>
+            </h1>
+            <p className="text-[#555] text-sm mt-2">
+              Get your virality score in seconds. Powered by Groq Llama 3.3.
+            </p>
+          </div>
+          
+          {/* History Button */}
+          <button
+            onClick={() => setHistoryOpen(true)}
+            className="border border-[#222] text-[#888] hover:border-[#00ff87] hover:text-[#00ff87] 
+                       px-4 py-2 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors self-start sm:self-auto"
           >
-            Analyze Your{" "}
-            <span className="text-[#00ff87]">Content</span>
-          </h1>
-          <p className="text-[#555] text-sm mt-2">
-            Get your virality score in seconds. Powered by Gemini 2.0 Flash.
-          </p>
+            <Clock size={16} />
+            <span>History</span>
+            {historyCount > 0 && (
+              <span className="bg-[#00ff87] text-black text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
+                {historyCount}
+              </span>
+            )}
+          </button>
         </div>
 
         {/* Two-column layout: stacks on mobile, side-by-side on desktop */}
@@ -424,6 +500,21 @@ export default function AnalyzePage() {
           </div>
         </div>
       </div>
+
+      <HistoryPanel
+        isOpen={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        onRestore={handleRestore}
+      />
+
+      {analysisResult && (
+        <ShareCard
+          result={analysisResult}
+          contentPreview={lastContent.slice(0, 60)}
+          isOpen={shareOpen}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
     </main>
   );
 }
