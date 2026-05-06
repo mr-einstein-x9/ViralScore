@@ -10,8 +10,10 @@ import MetricsGrid from "@/components/MetricsGrid";
 import SuggestionsList from "@/components/SuggestionsList";
 import HashtagPanel from "@/components/HashtagPanel";
 import HistoryPanel from "@/components/HistoryPanel";
+import ShareCard from "@/components/ShareCard";
 import { saveToHistory, getHistory, HistoryEntry } from "@/lib/history";
 import type { ViralAnalysis } from "@/lib/gemini";
+import { Share2 } from "lucide-react";
 
 // ── Loading messages ──────────────────────────────────────────────────────────
 
@@ -156,6 +158,10 @@ export default function AnalyzePage() {
   const [historyOpen, setHistoryOpen]       = useState(false);
   const [historyCount, setHistoryCount]     = useState(0);
 
+  // Share state
+  const [shareOpen, setShareOpen]           = useState(false);
+  const [lastContent, setLastContent]       = useState("");
+
   const loadingMessage = useCyclingMessage(LOADING_MESSAGES, isLoading);
   const resultsRef     = useRef<HTMLDivElement>(null);
 
@@ -190,6 +196,7 @@ export default function AnalyzePage() {
     setError(null);
     setHasAnalyzed(true);
     setAnalysisResult(null);
+    setLastContent(data.content);
 
     try {
       const res  = await fetch("/api/analyze", {
@@ -226,6 +233,7 @@ export default function AnalyzePage() {
   
   const handleRestore = (entry: HistoryEntry) => {
     setAnalysisResult(entry.result);
+    setLastContent(entry.contentPreview);
     setHasAnalyzed(true);
     setHistoryOpen(false);
     // Note: To perfectly restore input fields in UploadPanel, UploadPanel 
@@ -379,6 +387,19 @@ export default function AnalyzePage() {
           animate="visible"
           className="flex flex-col gap-5"
         >
+          {/* Share Score Button */}
+          <div className="flex justify-end">
+            <button
+              onClick={() => setShareOpen(true)}
+              className="bg-[#1a1a1a] border border-[#333] text-[#888] 
+                         hover:border-[#00ff87] hover:text-[#00ff87]
+                         px-4 py-2 rounded-xl text-sm flex items-center gap-2 transition-all"
+            >
+              <Share2 className="w-4 h-4" />
+              <span>Share Score</span>
+            </button>
+          </div>
+
           <motion.div variants={resultItemVariants}>
             <ScoreGauge
               overallScore={analysisResult.overallScore}
@@ -485,6 +506,15 @@ export default function AnalyzePage() {
         onClose={() => setHistoryOpen(false)}
         onRestore={handleRestore}
       />
+
+      {analysisResult && (
+        <ShareCard
+          result={analysisResult}
+          contentPreview={lastContent.slice(0, 60)}
+          isOpen={shareOpen}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
     </main>
   );
 }
