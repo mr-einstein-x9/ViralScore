@@ -104,7 +104,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 │   ├── SuggestionsList.tsx    # Hook analysis + strengths + improvements
 │   └── HashtagPanel.tsx       # Hashtags / Captions / Competitor tabs
 ├── lib/
-│   └── gemini.ts              # ViralAnalysis type + analyzeContent()
+│   └── groq.ts                # ViralAnalysis type + analyzeContent()
 ├── ai-logs/
 │   └── build-log.md           # Prompt-by-prompt build documentation
 └── .env.local.example

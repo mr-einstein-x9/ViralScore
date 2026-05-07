@@ -1,4 +1,4 @@
-import type { ViralAnalysis } from "./gemini";
+import type { ViralAnalysis } from "./groq";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { analyzeContent } from "@/lib/gemini";
+import { analyzeContent } from "@/lib/groq";
 
 // ── Request body type ─────────────────────────────────────────────────────────
 
@@ -8,6 +8,7 @@ type AnalyzeRequestBody = {
   content: string;
   platform: "TikTok" | "Instagram" | "YouTube" | "LinkedIn" | "Twitter/X";
   context?: string;
+  fileData?: string; // base64
 };
 
 // ── Valid option sets for validation ─────────────────────────────────────────
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { contentType, content, platform, context } = body;
+  const { contentType, content, platform, context, fileData } = body;
 
   // ── Validate required fields ─────────────────────────────────────────────
   if (!contentType || !VALID_CONTENT_TYPES.includes(contentType as any)) {
@@ -72,10 +73,11 @@ export async function POST(request: NextRequest) {
   // ── Call Gemini helper ───────────────────────────────────────────────────
   try {
     const result = await analyzeContent({
-      contentType,
+      contentType: contentType as any,
       content: content.trim(),
-      platform,
+      platform: platform as any,
       context: typeof context === "string" ? context.trim() : undefined,
+      fileData,
     });
 
     return NextResponse.json(result);
