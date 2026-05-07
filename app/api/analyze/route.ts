@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // ── Call Gemini helper ───────────────────────────────────────────────────
+  // ── Call Groq helper ───────────────────────────────────────────────────
   try {
     const result = await analyzeContent({
       contentType: contentType as any,
