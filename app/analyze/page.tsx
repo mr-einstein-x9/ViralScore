@@ -7,23 +7,35 @@ import Navbar from "@/components/Navbar";
 import UploadPanel from "@/components/UploadPanel";
 import ScoreGauge from "@/components/ScoreGauge";
 import MetricsGrid from "@/components/MetricsGrid";
+import EngagementForecast from "@/components/EngagementForecast";
+import HookTimeline from "@/components/HookTimeline";
 import SuggestionsList from "@/components/SuggestionsList";
 import HashtagPanel from "@/components/HashtagPanel";
+import AudioRecommendations from "@/components/AudioRecommendations";
 import HistoryPanel from "@/components/HistoryPanel";
 import ShareCard from "@/components/ShareCard";
 import { saveToHistory, getHistory, HistoryEntry } from "@/lib/history";
-import type { ViralAnalysis } from "@/lib/gemini";
+import type { ViralAnalysis } from "@/lib/groq";
 import { Share2 } from "lucide-react";
 
 // ── Loading messages ──────────────────────────────────────────────────────────
 
 const LOADING_MESSAGES = [
-  "Analyzing your content...",
-  "Checking hook strength...",
-  "Measuring emotional triggers...",
-  "Scoring viral potential...",
-  "Generating hashtags...",
-  "Almost done...",
+  "Analyzing visual hooks...",
+  "Calculating emotional resonance...",
+  "Checking platform trends...",
+  "Predicting engagement reach...",
+  "Scanning competitor intel...",
+  "Generating improvement checklist...",
+];
+
+const VIRAL_TIPS = [
+  "The first 3 seconds are make-or-break.",
+  "Add 'Wait for it' to increase retention.",
+  "Closed loops in hooks force users to watch until the end.",
+  "LinkedIn favors text-heavy posts with a strong CTA.",
+  "TikTok trends move fast—post within 48h of a song peaking.",
+  "Respond to every comment in the first hour.",
 ];
 
 // ── Score label badge colors ──────────────────────────────────────────────────
@@ -161,6 +173,7 @@ export default function AnalyzePage() {
   // Share state
   const [shareOpen, setShareOpen]           = useState(false);
   const [lastContent, setLastContent]       = useState("");
+  const [analysisTimestamp, setAnalysisTimestamp] = useState<number>(Date.now());
 
   const loadingMessage = useCyclingMessage(LOADING_MESSAGES, isLoading);
   const resultsRef     = useRef<HTMLDivElement>(null);
@@ -212,6 +225,7 @@ export default function AnalyzePage() {
       
       const resultData = json as ViralAnalysis;
       setAnalysisResult(resultData);
+      setAnalysisTimestamp(Date.now());
 
       // Save to history
       saveToHistory({
@@ -234,6 +248,7 @@ export default function AnalyzePage() {
   const handleRestore = (entry: HistoryEntry) => {
     setAnalysisResult(entry.result);
     setLastContent(entry.contentPreview);
+    setAnalysisTimestamp(entry.timestamp);
     setHasAnalyzed(true);
     setHistoryOpen(false);
     // Note: To perfectly restore input fields in UploadPanel, UploadPanel 
@@ -420,19 +435,45 @@ export default function AnalyzePage() {
           </motion.div>
 
           <motion.div variants={resultItemVariants}>
+            <EngagementForecast
+              views={analysisResult.predictedViews}
+              likes={analysisResult.predictedLikes}
+              comments={analysisResult.predictedComments}
+              shares={analysisResult.predictedShares}
+            />
+          </motion.div>
+
+          <motion.div variants={resultItemVariants}>
+            <HookTimeline events={analysisResult.hookTimeline} />
+          </motion.div>
+
+          <motion.div variants={resultItemVariants}>
             <SuggestionsList
               improvements={analysisResult.improvements}
               strengths={analysisResult.strengths}
               hookAnalysis={analysisResult.hookAnalysis}
+              timestamp={analysisTimestamp}
             />
           </motion.div>
 
           <motion.div variants={resultItemVariants}>
             <HashtagPanel
               hashtags={analysisResult.hashtags}
-              captionSuggestions={analysisResult.captionSuggestions}
+              captionRewrites={analysisResult.captionRewrites}
               competitorInsight={analysisResult.competitorInsight}
+              userMetrics={{
+                hookStrength: analysisResult.hookStrength,
+                captionClarity: analysisResult.captionClarity,
+                emotionalTrigger: analysisResult.emotionalTrigger,
+                trendingRelevance: analysisResult.trendingRelevance,
+                callToAction: analysisResult.callToAction,
+                thumbnailRating: analysisResult.thumbnailRating,
+              }}
             />
+          </motion.div>
+
+          <motion.div variants={resultItemVariants}>
+            <AudioRecommendations platform={analysisResult.platform} />
           </motion.div>
         </motion.div>
       );
@@ -446,6 +487,24 @@ export default function AnalyzePage() {
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-[#f0f0f0]">
       <Navbar />
+
+      {/* ── Tips Marquee ──────────────────────────────────────────────── */}
+      <div className="w-full bg-[#111] border-b border-[#222] overflow-hidden py-2 hidden sm:block">
+        <motion.div 
+          animate={{ x: [0, -1000] }}
+          transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+          className="flex whitespace-nowrap gap-12"
+        >
+          {[...VIRAL_TIPS, ...VIRAL_TIPS].map((tip, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <Zap size={12} className="text-[#00ff87]" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#555]">
+                {tip}
+              </span>
+            </div>
+          ))}
+        </motion.div>
+      </div>
 
       {/* Sticky score bar — only visible when results exist + user scrolled */}
       {analysisResult && <StickyScoreBar result={analysisResult} />}

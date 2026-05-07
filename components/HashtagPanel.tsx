@@ -3,13 +3,31 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Copy, Check, Trophy } from "lucide-react";
-
-// ── Props ─────────────────────────────────────────────────────────────────────
+import CompetitorCompare from "@/components/CompetitorCompare";
 
 interface HashtagPanelProps {
   hashtags:           string[];
-  captionSuggestions: string[];
-  competitorInsight:  string;
+  captionRewrites:    string[];
+  competitorInsight:  {
+    summary: string;
+    competitorMetrics: {
+      hookStrength: number;
+      captionClarity: number;
+      emotionalTrigger: number;
+      trendingRelevance: number;
+      callToAction: number;
+      thumbnailRating: number;
+    };
+    competitorNames: string[];
+  };
+  userMetrics: {
+    hookStrength: number;
+    captionClarity: number;
+    emotionalTrigger: number;
+    trendingRelevance: number;
+    callToAction: number;
+    thumbnailRating: number;
+  };
 }
 
 type ActiveTab = "hashtags" | "captions" | "competitor";
@@ -49,8 +67,9 @@ const tabContentVariants = {
 
 export default function HashtagPanel({
   hashtags,
-  captionSuggestions,
+  captionRewrites,
   competitorInsight,
+  userMetrics,
 }: HashtagPanelProps) {
   const [activeTab, setActiveTab] = useState<ActiveTab>("hashtags");
   const { copiedKey, copy } = useCopyToast();
@@ -147,38 +166,44 @@ export default function HashtagPanel({
             exit="exit"
             className="flex flex-col gap-3"
           >
-            {captionSuggestions.map((caption, i) => {
-              const copyKey = `caption-${i}`;
-              return (
-                <div
-                  key={i}
-                  className="bg-[#161616] border border-[#222] rounded-xl p-3 sm:p-4
-                             flex flex-col gap-3 hover:border-[#333] transition-all duration-200"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#555] text-xs uppercase tracking-widest font-medium">
-                      Version {i + 1}
-                    </span>
-                    <button
-                      onClick={() => copy(caption, copyKey)}
-                      className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1
-                                 rounded-full transition-all duration-200 ${
-                        copiedKey === copyKey
-                          ? "bg-[#00ff87]/10 text-[#00ff87]"
-                          : "bg-[#222] text-[#888] hover:text-white"
-                      }`}
-                    >
-                      {copiedKey === copyKey ? (
-                        <><Check size={11} /> Copied</>
-                      ) : (
-                        <><Copy size={11} /> Copy</>
-                      )}
-                    </button>
+            {!captionRewrites || captionRewrites.length === 0 ? (
+              <div className="text-center py-8 border border-dashed border-[#222] rounded-xl">
+                <p className="text-[#555] text-sm">No rewrites generated. Try again.</p>
+              </div>
+            ) : (
+              captionRewrites.map((caption, i) => {
+                const copyKey = `caption-${i}`;
+                return (
+                  <div
+                    key={i}
+                    className="bg-[#161616] border border-[#222] rounded-xl p-3 sm:p-4
+                               flex flex-col gap-3 hover:border-[#333] transition-all duration-200"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#555] text-xs uppercase tracking-widest font-medium">
+                        Version {i + 1}
+                      </span>
+                      <button
+                        onClick={() => copy(caption, copyKey)}
+                        className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1
+                                   rounded-full transition-all duration-200 ${
+                          copiedKey === copyKey
+                            ? "bg-[#00ff87]/10 text-[#00ff87]"
+                            : "bg-[#222] text-[#888] hover:text-white"
+                        }`}
+                      >
+                        {copiedKey === copyKey ? (
+                          <><Check size={11} /> Copied</>
+                        ) : (
+                          <><Copy size={11} /> Copy</>
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-[#ccc] text-sm leading-relaxed whitespace-pre-wrap">{caption}</p>
                   </div>
-                  <p className="text-[#ccc] text-sm leading-relaxed">{caption}</p>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </motion.div>
         )}
 
@@ -192,14 +217,17 @@ export default function HashtagPanel({
             exit="exit"
             className="flex flex-col gap-4"
           >
-            <div className="bg-[#161616] border border-[#222] rounded-xl p-4 sm:p-5">
-              <p className="text-[#888] text-xs uppercase tracking-widest mb-3 font-medium">
-                What top creators do differently
-              </p>
-              <p className="text-[#ccc] text-sm leading-relaxed">{competitorInsight}</p>
-            </div>
+            <CompetitorCompare
+              summary={competitorInsight.summary}
+              competitorMetrics={competitorInsight.competitorMetrics}
+              userMetrics={userMetrics}
+              competitorNames={competitorInsight.competitorNames}
+            />
 
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 mt-4">
+              <p className="text-[#555] text-[10px] uppercase tracking-widest font-bold mb-1">
+                Strategy Tips
+              </p>
               {COMPETITOR_TIPS.map((tip, i) => (
                 <div
                   key={i}
@@ -207,7 +235,7 @@ export default function HashtagPanel({
                              rounded-xl p-3 hover:border-[#00ff87]/20 transition-all duration-200"
                 >
                   <Trophy size={14} className="text-[#00ff87] flex-shrink-0 mt-0.5" />
-                  <p className="text-[#888] text-sm leading-relaxed">{tip}</p>
+                  <p className="text-[#888] text-xs leading-relaxed">{tip}</p>
                 </div>
               ))}
             </div>
