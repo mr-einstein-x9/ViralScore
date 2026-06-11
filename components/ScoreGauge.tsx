@@ -9,6 +9,8 @@ interface ScoreGaugeProps {
   overallScore: number;
   scoreLabel: string;
   platform: string;
+  scoreColor?: "red" | "orange" | "yellow" | "lime" | "green";
+  oneLiner?: string;
 }
 
 // ── Count-up hook ─────────────────────────────────────────────────────────────
@@ -40,6 +42,46 @@ function useCountUp(target: number, duration: number = 1500): number {
   return count;
 }
 
+// ── Premium Color Themes ───────────────────────────────────────────────────────
+
+const COLOR_THEMES = {
+  red: {
+    stroke: "#ef4444",
+    text: "text-red-400",
+    border: "border-red-900/30",
+    bg: "bg-red-950/20",
+    glow: "rgba(239, 68, 68, 0.15)"
+  },
+  orange: {
+    stroke: "#f97316",
+    text: "text-orange-400",
+    border: "border-orange-900/30",
+    bg: "bg-orange-950/20",
+    glow: "rgba(249, 115, 22, 0.15)"
+  },
+  yellow: {
+    stroke: "#eab308",
+    text: "text-yellow-400",
+    border: "border-yellow-900/30",
+    bg: "bg-yellow-950/20",
+    glow: "rgba(234, 179, 8, 0.15)"
+  },
+  lime: {
+    stroke: "#84cc16",
+    text: "text-lime-400",
+    border: "border-lime-900/30",
+    bg: "bg-lime-950/20",
+    glow: "rgba(132, 204, 22, 0.15)"
+  },
+  green: {
+    stroke: "#00ff87",
+    text: "text-[#00ff87]",
+    border: "border-[#00ff87]/30",
+    bg: "bg-[#00ff87]/10",
+    glow: "rgba(0, 255, 135, 0.15)"
+  }
+};
+
 // ── Score label styles ────────────────────────────────────────────────────────
 
 const LABEL_STYLES: Record<string, string> = {
@@ -69,9 +111,26 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function ScoreGauge({ overallScore, scoreLabel, platform }: ScoreGaugeProps) {
+export default function ScoreGauge({ overallScore, scoreLabel, platform, scoreColor, oneLiner }: ScoreGaugeProps) {
   const displayScore  = useCountUp(overallScore, 1500);
-  const labelStyle    = LABEL_STYLES[scoreLabel] ?? LABEL_STYLES["Viral Ready"];
+  
+  // Decide the theme color based on scoreColor mapping or fallback
+  const theme = scoreColor && COLOR_THEMES[scoreColor]
+    ? COLOR_THEMES[scoreColor]
+    : overallScore >= 90
+    ? COLOR_THEMES.green
+    : overallScore >= 75
+    ? COLOR_THEMES.lime
+    : overallScore >= 60
+    ? COLOR_THEMES.yellow
+    : overallScore >= 40
+    ? COLOR_THEMES.orange
+    : COLOR_THEMES.red;
+
+  const labelStyle = scoreColor
+    ? `${theme.bg} ${theme.text} ${theme.border}`
+    : LABEL_STYLES[scoreLabel] ?? LABEL_STYLES["Viral Ready"];
+    
   const platformEmoji = PLATFORM_EMOJI[platform] ?? "📊";
 
   // strokeDashoffset: full circle = CIRCUMFERENCE (empty), 0 = full
@@ -82,12 +141,23 @@ export default function ScoreGauge({ overallScore, scoreLabel, platform }: Score
       initial={{ opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-      className="bg-[#111] border border-[#222] rounded-2xl p-8 flex flex-col items-center gap-5"
+      className="bg-[#111] border border-[#222] rounded-2xl p-6 sm:p-8 flex flex-col items-center gap-5 relative overflow-hidden"
     >
+      {/* Dynamic Glow Background */}
+      <div 
+        className="absolute w-[200px] h-[200px] rounded-full blur-[100px] pointer-events-none -bottom-10 opacity-30 transition-all duration-700" 
+        style={{ backgroundColor: theme.stroke }}
+      />
+
       {/* ── Header label ─────────────────────────────────────────────── */}
-      <p className="text-[#555] text-xs uppercase tracking-widest font-medium self-start">
-        Virality Score
-      </p>
+      <div className="w-full flex items-center justify-between">
+        <p className="text-[#555] text-xs uppercase tracking-widest font-medium">
+          Virality Score
+        </p>
+        <span className="text-[10px] font-bold tracking-wider uppercase text-[#444] border border-[#222] px-2 py-0.5 rounded-md">
+          Calibrated
+        </span>
+      </div>
 
       {/* ── SVG Gauge ────────────────────────────────────────────────── */}
       <div className="relative flex items-center justify-center">
@@ -103,7 +173,7 @@ export default function ScoreGauge({ overallScore, scoreLabel, platform }: Score
             cy={CENTER}
             r={RADIUS}
             fill="none"
-            stroke="#222"
+            stroke="#1a1a1a"
             strokeWidth={STROKE}
           />
 
@@ -113,7 +183,7 @@ export default function ScoreGauge({ overallScore, scoreLabel, platform }: Score
             cy={CENTER}
             r={RADIUS}
             fill="none"
-            stroke="#00ff87"
+            stroke={theme.stroke}
             strokeWidth={STROKE}
             strokeLinecap="round"
             strokeDasharray={CIRCUMFERENCE}
@@ -125,7 +195,10 @@ export default function ScoreGauge({ overallScore, scoreLabel, platform }: Score
 
         {/* Center content — overlaid on the SVG */}
         <div className="absolute inset-0 flex flex-col items-center justify-center rotate-0">
-          <span className="font-display text-5xl text-[#00ff87] leading-none">
+          <span 
+            className="font-display text-5xl leading-none transition-colors duration-500"
+            style={{ color: theme.stroke }}
+          >
             {displayScore}
           </span>
           <span className="text-[#555] text-sm mt-0.5">/ 100</span>
@@ -134,19 +207,36 @@ export default function ScoreGauge({ overallScore, scoreLabel, platform }: Score
 
       {/* ── Score label badge ─────────────────────────────────────────── */}
       <span
-        className={`border rounded-full px-4 py-1 text-sm font-semibold ${labelStyle}`}
+        className={`border rounded-full px-5 py-1 text-sm font-semibold transition-all duration-500 ${labelStyle}`}
       >
         {scoreLabel}
       </span>
 
       {/* ── Platform badge ────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 bg-[#1a1a1a] border border-[#222] rounded-full px-4 py-1.5">
+      <div className="flex items-center gap-2 bg-[#161616] border border-[#222] rounded-full px-4 py-1.5 z-10">
         <span className="text-base leading-none">{platformEmoji}</span>
         <span className="text-[#888] text-xs font-medium">
-          Analyzed for{" "}
-          <span className="text-[#ccc]">{platform}</span>
+          Platform: <span className="text-white">{platform}</span>
         </span>
       </div>
+
+      {/* ── Dynamic One Liner Card ─────────────────────────────────────── */}
+      {oneLiner && (
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.3 }}
+          className="w-full mt-2 bg-[#161616]/80 backdrop-blur-md border border-[#222] rounded-xl p-4 flex items-start gap-3 z-10"
+        >
+          <div 
+            className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0 animate-pulse" 
+            style={{ backgroundColor: theme.stroke, boxShadow: `0 0 8px ${theme.stroke}` }}
+          />
+          <p className="text-[#ccc] text-xs sm:text-sm leading-relaxed font-medium italic">
+            &ldquo;{oneLiner}&rdquo;
+          </p>
+        </motion.div>
+      )}
     </motion.div>
   );
 }

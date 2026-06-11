@@ -14,6 +14,7 @@ import HashtagPanel from "@/components/HashtagPanel";
 import AudioRecommendations from "@/components/AudioRecommendations";
 import HistoryPanel from "@/components/HistoryPanel";
 import ShareCard from "@/components/ShareCard";
+import PostingStrategy from "@/components/PostingStrategy";
 import { saveToHistory, getHistory, HistoryEntry } from "@/lib/history";
 import type { ViralAnalysis } from "@/lib/groq";
 import { Share2 } from "lucide-react";
@@ -420,6 +421,8 @@ export default function AnalyzePage() {
               overallScore={analysisResult.overallScore}
               scoreLabel={analysisResult.scoreLabel}
               platform={analysisResult.platform}
+              scoreColor={analysisResult.scoreColor}
+              oneLiner={analysisResult.oneLiner}
             />
           </motion.div>
 
@@ -453,6 +456,8 @@ export default function AnalyzePage() {
               strengths={analysisResult.strengths}
               hookAnalysis={analysisResult.hookAnalysis}
               timestamp={analysisTimestamp}
+              improvedHook={analysisResult.metricsNew?.hookStrength.improvedHook}
+              top3Actions={analysisResult.top3Actions}
             />
           </motion.div>
 
@@ -469,12 +474,27 @@ export default function AnalyzePage() {
                 callToAction: analysisResult.callToAction,
                 thumbnailRating: analysisResult.thumbnailRating,
               }}
+              hashtagsNew={analysisResult.hashtagsNew}
+              competitorBenchmarkNew={analysisResult.competitorBenchmarkNew}
             />
           </motion.div>
 
           <motion.div variants={resultItemVariants}>
-            <AudioRecommendations platform={analysisResult.platform} />
+            <AudioRecommendations 
+              platform={analysisResult.platform} 
+              trendingAudioNew={analysisResult.trendingAudioNew}
+            />
           </motion.div>
+
+          {analysisResult.postingStrategy && (
+            <motion.div variants={resultItemVariants}>
+              <PostingStrategy
+                bestTime={analysisResult.postingStrategy.bestTime}
+                contentFormat={analysisResult.postingStrategy.contentFormat}
+                crossPlatformPotential={analysisResult.postingStrategy.crossPlatformPotential}
+              />
+            </motion.div>
+          )}
         </motion.div>
       );
     }

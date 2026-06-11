@@ -47,7 +47,7 @@ npm install
 
 # 3. Configure environment
 cp .env.local.example .env.local
-# Open .env.local and add your Gemini API key
+# Open .env.local and add your Groq API key
 
 # 4. Get your free Groq API key
 # → https://console.groq.com/keys
@@ -91,7 +91,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ```
 ├── app/
-│   ├── api/analyze/route.ts   # POST endpoint → Gemini
+│   ├── api/analyze/route.ts   # POST endpoint → Groq
 │   ├── analyze/page.tsx       # Main analyzer UI
 │   ├── globals.css            # Design tokens + animations
 │   ├── layout.tsx             # Root layout + fonts

@@ -2,15 +2,21 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lightbulb, CheckCircle, Circle, RotateCcw, PartyPopper } from "lucide-react";
+import { Lightbulb, CheckCircle, Circle, RotateCcw, PartyPopper, Copy, Check } from "lucide-react";
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 interface SuggestionsListProps {
-  improvements: string[];  // 5 items
-  strengths:    string[];  // 3 items
+  improvements: string[];
+  strengths:    string[];
   hookAnalysis: string;
   timestamp:    number;
+  improvedHook?: string;
+  top3Actions?: {
+    priority: number;
+    action: string;
+    expectedImpact: string;
+  }[];
 }
 
 // ── Animation variants ────────────────────────────────────────────────────────
@@ -42,9 +48,12 @@ export default function SuggestionsList({
   strengths,
   hookAnalysis,
   timestamp,
+  improvedHook,
+  top3Actions
 }: SuggestionsListProps) {
   const [checkedItems, setCheckedItems] = useState<boolean[]>(new Array(5).fill(false));
   const [showConfetti, setShowConfetti] = useState(false);
+  const [copiedHook, setCopiedHook] = useState(false);
 
   // Load from localStorage
   useEffect(() => {
@@ -56,9 +65,9 @@ export default function SuggestionsList({
         console.error("Failed to parse checklist state", e);
       }
     } else {
-      setCheckedItems(new Array(5).fill(false));
+      setCheckedItems(new Array(improvements.length).fill(false));
     }
-  }, [timestamp]);
+  }, [timestamp, improvements.length]);
 
   // Save to localStorage
   useEffect(() => {
@@ -78,13 +87,58 @@ export default function SuggestionsList({
   };
 
   const resetAll = () => {
-    setCheckedItems(new Array(5).fill(false));
+    setCheckedItems(new Array(improvements.length).fill(false));
+  };
+
+  const handleCopyHook = () => {
+    if (!improvedHook) return;
+    navigator.clipboard.writeText(improvedHook);
+    setCopiedHook(true);
+    setTimeout(() => setCopiedHook(false), 2000);
   };
 
   const completedCount = checkedItems.filter(Boolean).length;
   const isAllCompleted = completedCount === improvements.length;
+
   return (
     <div className="flex flex-col gap-6">
+
+      {/* ── SECTION 0 — Top 3 Priorities (If available) ───────────────── */}
+      {top3Actions && top3Actions.length > 0 && (
+        <div className="flex flex-col gap-3">
+          <SectionHeading>⚡ High-Impact Growth Actions</SectionHeading>
+          <div className="grid grid-cols-1 gap-3">
+            {top3Actions.map((item, idx) => (
+              <div
+                key={idx}
+                className="bg-gradient-to-r from-[#161616] to-[#111] border border-[#222] rounded-xl p-4 flex items-start gap-4 hover:border-[#00ff87]/30 transition-colors"
+              >
+                {/* Priority Badge */}
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-display text-sm font-bold flex-shrink-0 ${
+                  item.priority === 1 
+                    ? "bg-[#00ff87]/15 text-[#00ff87] border border-[#00ff87]/30"
+                    : item.priority === 2
+                    ? "bg-lime-500/15 text-lime-400 border border-lime-500/30"
+                    : "bg-yellow-500/15 text-yellow-400 border border-yellow-500/30"
+                }`}>
+                  #{item.priority}
+                </div>
+                
+                {/* Action details */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-white text-sm font-semibold leading-relaxed">
+                    {item.action}
+                  </p>
+                  <div className="mt-2 inline-flex items-center gap-1.5 bg-[#1a1a1a] px-2.5 py-0.5 rounded-full border border-[#222]">
+                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Impact:</span>
+                    <span className="text-[10px] font-bold text-[#00ff87]">{item.expectedImpact}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── SECTION A — Hook Analysis ────────────────────────────────── */}
       <div className="flex flex-col gap-3">
@@ -97,6 +151,29 @@ export default function SuggestionsList({
 
         <div className="bg-[#111] border border-[#222] rounded-2xl p-5 flex flex-col gap-4">
           <p className="text-[#ccc] leading-relaxed text-sm">{hookAnalysis}</p>
+
+          {/* Copyable Optimized Hook */}
+          {improvedHook && (
+            <div className="bg-[#161616] border border-[#222] rounded-xl p-4 flex flex-col gap-3 hover:border-[#333] transition-all">
+              <div className="flex items-center justify-between">
+                <span className="text-[#555] text-[10px] font-bold uppercase tracking-wider">
+                  AI-Optimized Hook Option
+                </span>
+                <button
+                  onClick={handleCopyHook}
+                  className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full transition-all ${
+                    copiedHook ? "bg-[#00ff87]/15 text-[#00ff87]" : "bg-[#222] text-[#888] hover:text-white"
+                  }`}
+                >
+                  {copiedHook ? <Check size={11} /> : <Copy size={11} />}
+                  {copiedHook ? "Copied" : "Copy Hook"}
+                </button>
+              </div>
+              <p className="text-white font-semibold text-sm leading-relaxed whitespace-pre-wrap">
+                &ldquo;{improvedHook}&rdquo;
+              </p>
+            </div>
+          )}
 
           {/* Pro tip row */}
           <div className="flex items-start gap-3 bg-[#00ff87]/5 border border-[#00ff87]/20 rounded-xl p-3">
@@ -124,7 +201,7 @@ export default function SuggestionsList({
             <motion.div
               key={i}
               variants={listItemVariants}
-              className="bg-green-950/20 border border-green-900/40 rounded-xl p-4
+              className="bg-green-950/10 border border-green-900/30 rounded-xl p-4
                          flex items-start gap-3"
             >
               <span className="text-green-400 font-bold text-sm mt-0.5 flex-shrink-0">
@@ -139,7 +216,7 @@ export default function SuggestionsList({
       {/* ── SECTION C — Improvements ─────────────────────────────────── */}
       <div className="flex flex-col gap-3 relative">
         <div className="flex items-center justify-between">
-          <SectionHeading>🚀 5 Ways to Improve</SectionHeading>
+          <SectionHeading>🚀 Actionable Checklist</SectionHeading>
           <div className="flex items-center gap-4">
             <span className={`text-[10px] font-bold uppercase tracking-widest ${isAllCompleted ? "text-[#00ff87]" : "text-[#555]"}`}>
               {completedCount} of {improvements.length} completed

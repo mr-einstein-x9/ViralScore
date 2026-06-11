@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, Check, Trophy } from "lucide-react";
+import { Copy, Check, Trophy, Hash, Compass, Target, Info } from "lucide-react";
 import CompetitorCompare from "@/components/CompetitorCompare";
 
 interface HashtagPanelProps {
@@ -28,19 +28,28 @@ interface HashtagPanelProps {
     callToAction: number;
     thumbnailRating: number;
   };
+  hashtagsNew?: {
+    primary: string[];
+    secondary: string[];
+    niche: string[];
+    strategy: string;
+  };
+  competitorBenchmarkNew?: {
+    contentTier: string;
+    percentileEstimate: number;
+    howYouCompare: string;
+    topPerformerTraits: string[];
+    gapAnalysis: string;
+  };
 }
 
 type ActiveTab = "hashtags" | "captions" | "competitor";
-
-// ── Static competitor tips ────────────────────────────────────────────────────
 
 const COMPETITOR_TIPS = [
   "Top creators in this niche post 3x/week minimum",
   "Trending audio increases reach by up to 40%",
   "Carousel posts get 3x more saves than single images",
 ];
-
-// ── Copy toast hook ───────────────────────────────────────────────────────────
 
 function useCopyToast() {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -55,30 +64,36 @@ function useCopyToast() {
   return { copiedKey, copy };
 }
 
-// ── Tab content animation ─────────────────────────────────────────────────────
-
 const tabContentVariants = {
   hidden:  { opacity: 0, y: 12 },
   visible: { opacity: 1, y: 0,  transition: { duration: 0.35, ease: "easeOut" } },
   exit:    { opacity: 0, y: -8, transition: { duration: 0.2 } },
 };
 
-// ── Component ─────────────────────────────────────────────────────────────────
-
 export default function HashtagPanel({
   hashtags,
   captionRewrites,
   competitorInsight,
   userMetrics,
+  hashtagsNew,
+  competitorBenchmarkNew
 }: HashtagPanelProps) {
   const [activeTab, setActiveTab] = useState<ActiveTab>("hashtags");
   const { copiedKey, copy } = useCopyToast();
 
   const tabs: { id: ActiveTab; label: string }[] = [
-    { id: "hashtags",   label: "Hashtags"         },
+    { id: "hashtags",   label: "Hashtags Strategy" },
     { id: "captions",   label: "Caption Rewrites"  },
     { id: "competitor", label: "Competitor Intel"   },
   ];
+
+  // Helper to compile all tags to copy
+  const getAllHashtagsString = () => {
+    if (hashtagsNew) {
+      return [...hashtagsNew.primary, ...hashtagsNew.secondary, ...hashtagsNew.niche].join(" ");
+    }
+    return hashtags.join(" ");
+  };
 
   return (
     <div className="bg-[#111] border border-[#222] rounded-2xl p-4 sm:p-6 flex flex-col gap-5">
@@ -92,7 +107,7 @@ export default function HashtagPanel({
             onClick={() => setActiveTab(tab.id)}
             className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-all duration-200 ${
               activeTab === tab.id
-                ? "bg-[#00ff87] text-black"
+                ? "bg-[#00ff87] text-black font-semibold"
                 : "border border-[#333] text-[#888] hover:border-[#00ff87] hover:text-[#00ff87]"
             }`}
           >
@@ -112,34 +127,114 @@ export default function HashtagPanel({
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="flex flex-col gap-4"
+            className="flex flex-col gap-5"
           >
-            <div className="flex flex-wrap gap-2">
-              {hashtags.map((tag) => (
-                <button
-                  key={tag}
-                  onClick={() => copy(tag, tag)}
-                  title={`Copy ${tag}`}
-                  className={`bg-[#1a1a1a] border rounded-full px-3 py-1.5 text-sm
-                             transition-all duration-200 cursor-pointer ${
-                    copiedKey === tag
-                      ? "border-[#00ff87] text-[#00ff87]"
-                      : "border-[#333] text-[#ccc] hover:border-[#00ff87] hover:text-[#00ff87]"
-                  }`}
-                >
-                  {copiedKey === tag ? (
-                    <span className="flex items-center gap-1">
-                      <Check size={11} /> Copied!
-                    </span>
-                  ) : (
-                    tag
-                  )}
-                </button>
-              ))}
-            </div>
+            {hashtagsNew ? (
+              <div className="flex flex-col gap-4">
+                {/* 3-Tier Grid Layout */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Tier 1: Primary */}
+                  <div className="bg-[#161616] border border-[#222] rounded-xl p-4 flex flex-col gap-3">
+                    <div className="flex items-center gap-2 text-white font-semibold text-xs uppercase tracking-wider">
+                      <Hash size={14} className="text-[#00ff87]" />
+                      <span>Primary (High-Vol)</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {hashtagsNew.primary.map((tag) => (
+                        <button
+                          key={tag}
+                          onClick={() => copy(tag, tag)}
+                          className={`px-2.5 py-1 text-xs rounded-full border transition-all ${
+                            copiedKey === tag 
+                              ? "border-[#00ff87] text-[#00ff87] bg-[#00ff87]/5" 
+                              : "border-[#2c2c2c] text-[#aaa] bg-[#111] hover:border-[#00ff87]"
+                          }`}
+                        >
+                          {copiedKey === tag ? "Copied!" : tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Tier 2: Secondary */}
+                  <div className="bg-[#161616] border border-[#222] rounded-xl p-4 flex flex-col gap-3">
+                    <div className="flex items-center gap-2 text-white font-semibold text-xs uppercase tracking-wider">
+                      <Compass size={14} className="text-lime-400" />
+                      <span>Secondary (Discovery)</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {hashtagsNew.secondary.map((tag) => (
+                        <button
+                          key={tag}
+                          onClick={() => copy(tag, tag)}
+                          className={`px-2.5 py-1 text-xs rounded-full border transition-all ${
+                            copiedKey === tag 
+                              ? "border-[#00ff87] text-[#00ff87] bg-[#00ff87]/5" 
+                              : "border-[#2c2c2c] text-[#aaa] bg-[#111] hover:border-lime-400"
+                          }`}
+                        >
+                          {copiedKey === tag ? "Copied!" : tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Tier 3: Niche */}
+                  <div className="bg-[#161616] border border-[#222] rounded-xl p-4 flex flex-col gap-3">
+                    <div className="flex items-center gap-2 text-white font-semibold text-xs uppercase tracking-wider">
+                      <Target size={14} className="text-yellow-400" />
+                      <span>Niche (Community)</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {hashtagsNew.niche.map((tag) => (
+                        <button
+                          key={tag}
+                          onClick={() => copy(tag, tag)}
+                          className={`px-2.5 py-1 text-xs rounded-full border transition-all ${
+                            copiedKey === tag 
+                              ? "border-[#00ff87] text-[#00ff87] bg-[#00ff87]/5" 
+                              : "border-[#2c2c2c] text-[#aaa] bg-[#111] hover:border-yellow-400"
+                          }`}
+                        >
+                          {copiedKey === tag ? "Copied!" : tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Strategy note */}
+                {hashtagsNew.strategy && (
+                  <div className="bg-[#1a1a1a]/50 p-3 rounded-lg border border-[#222] flex items-start gap-2.5">
+                    <Info size={14} className="text-[#555] mt-0.5 flex-shrink-0" />
+                    <p className="text-xs text-[#888] leading-relaxed">
+                      <span className="font-semibold text-[#ccc]">Deployment Strategy:</span> {hashtagsNew.strategy}
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Flat fallback tags list */
+              <div className="flex flex-wrap gap-2">
+                {hashtags.map((tag) => (
+                  <button
+                    key={tag}
+                    onClick={() => copy(tag, tag)}
+                    className={`bg-[#1a1a1a] border rounded-full px-3 py-1.5 text-sm
+                               transition-all duration-200 cursor-pointer ${
+                      copiedKey === tag
+                        ? "border-[#00ff87] text-[#00ff87]"
+                        : "border-[#333] text-[#ccc] hover:border-[#00ff87] hover:text-[#00ff87]"
+                    }`}
+                  >
+                    {copiedKey === tag ? "Copied!" : tag}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <button
-              onClick={() => copy(hashtags.join(" "), "all")}
+              onClick={() => copy(getAllHashtagsString(), "all")}
               className={`flex items-center justify-center gap-2 w-full border rounded-xl py-2.5
                          text-sm font-medium transition-all duration-200 ${
                 copiedKey === "all"
@@ -173,6 +268,11 @@ export default function HashtagPanel({
             ) : (
               captionRewrites.map((caption, i) => {
                 const copyKey = `caption-${i}`;
+                let variantLabel = `Rewrite Version ${i + 1}`;
+                if (i === 0) variantLabel = "Stronger Hook Focus";
+                else if (i === 1) variantLabel = "Emotional Hook Focus";
+                else if (i === 2) variantLabel = "Brevity & Clarity Focus";
+                
                 return (
                   <div
                     key={i}
@@ -180,12 +280,12 @@ export default function HashtagPanel({
                                flex flex-col gap-3 hover:border-[#333] transition-all duration-200"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-[#555] text-xs uppercase tracking-widest font-medium">
-                        Version {i + 1}
+                      <span className="text-[#555] text-[10px] uppercase tracking-widest font-bold">
+                        {variantLabel}
                       </span>
                       <button
                         onClick={() => copy(caption, copyKey)}
-                        className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1
+                        className={`flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1
                                    rounded-full transition-all duration-200 ${
                           copiedKey === copyKey
                             ? "bg-[#00ff87]/10 text-[#00ff87]"
@@ -195,7 +295,7 @@ export default function HashtagPanel({
                         {copiedKey === copyKey ? (
                           <><Check size={11} /> Copied</>
                         ) : (
-                          <><Copy size={11} /> Copy</>
+                          <><Copy size={11} /> Copy Rewrite</>
                         )}
                       </button>
                     </div>
@@ -222,6 +322,7 @@ export default function HashtagPanel({
               competitorMetrics={competitorInsight.competitorMetrics}
               userMetrics={userMetrics}
               competitorNames={competitorInsight.competitorNames}
+              competitorBenchmarkNew={competitorBenchmarkNew}
             />
 
             <div className="flex flex-col gap-2 mt-4">
