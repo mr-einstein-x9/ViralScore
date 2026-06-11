@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Clock } from "lucide-react";
+import { getHistory } from "@/lib/history";
 
 const navLinks = [
   { label: "How it works", href: "#how-it-works" },
@@ -11,6 +13,25 @@ const navLinks = [
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
+  const isAnalyzePage = pathname?.startsWith("/analyze");
+  const showHowItWorks = !isAnalyzePage;
+  
+  const [historyCount, setHistoryCount] = useState(0);
+
+  useEffect(() => {
+    function updateCount() {
+      setHistoryCount(getHistory().length);
+    }
+    updateCount();
+    window.addEventListener("historyUpdated", updateCount);
+    return () => window.removeEventListener("historyUpdated", updateCount);
+  }, []);
+
+  const handleOpenHistory = () => {
+    window.dispatchEvent(new Event("openHistory"));
+    setMobileOpen(false);
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-[#222]">
@@ -30,7 +51,7 @@ export default function Navbar() {
 
           {/* ── Desktop Nav ──────────────────────────────────────── */}
           <nav className="hidden md:flex items-center gap-6">
-            {navLinks.map((link) => (
+            {showHowItWorks && navLinks.map((link) => (
               <a
                 key={link.label}
                 href={link.href}
@@ -40,12 +61,28 @@ export default function Navbar() {
               </a>
             ))}
 
-            <Link
-              href="/analyze"
-              className="bg-[#00ff87] text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-white transition-all duration-200"
-            >
-              Start Analyzing →
-            </Link>
+            {isAnalyzePage ? (
+              <button
+                onClick={handleOpenHistory}
+                className="group border border-[#333] text-[#888] hover:border-white hover:text-white 
+                           px-4 py-1.5 rounded-full text-sm flex items-center justify-center gap-2 transition-colors font-medium bg-[#111]"
+              >
+                <Clock size={15} />
+                <span>History</span>
+                {historyCount > 0 && (
+                  <span className="bg-[#222] text-[#888] group-hover:bg-[#333] group-hover:text-white text-[10px] w-4.5 h-4.5 rounded-full flex items-center justify-center font-bold transition-colors">
+                    {historyCount}
+                  </span>
+                )}
+              </button>
+            ) : (
+              <Link
+                href="/analyze"
+                className="bg-[#00ff87] text-black font-semibold px-5 py-2 rounded-full text-sm hover:bg-white transition-all duration-200"
+              >
+                Start Analyzing →
+              </Link>
+            )}
           </nav>
 
           {/* ── Mobile Hamburger ─────────────────────────────────── */}
@@ -71,7 +108,7 @@ export default function Navbar() {
             className="md:hidden overflow-hidden bg-[#0a0a0a] border-t border-[#222]"
           >
             <div className="flex flex-col gap-1 px-4 py-4">
-              {navLinks.map((link) => (
+              {showHowItWorks && navLinks.map((link) => (
                 <a
                   key={link.label}
                   href={link.href}
@@ -82,13 +119,29 @@ export default function Navbar() {
                 </a>
               ))}
 
-              <Link
-                href="/analyze"
-                onClick={() => setMobileOpen(false)}
-                className="mt-2 bg-[#00ff87] text-black font-semibold px-5 py-3 rounded-full text-sm text-center hover:bg-white transition-all duration-200"
-              >
-                Start Analyzing →
-              </Link>
+              {isAnalyzePage ? (
+                <button
+                  onClick={handleOpenHistory}
+                  className="group mt-2 border border-[#333] text-[#888] hover:border-white hover:text-white 
+                             px-5 py-3 rounded-full text-sm flex items-center justify-center gap-2 transition-colors w-full font-semibold bg-[#111]"
+                >
+                  <Clock size={16} />
+                  <span>History</span>
+                  {historyCount > 0 && (
+                    <span className="bg-[#222] text-[#888] group-hover:bg-[#333] group-hover:text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold transition-colors">
+                      {historyCount}
+                    </span>
+                  )}
+                </button>
+              ) : (
+                <Link
+                  href="/analyze"
+                  onClick={() => setMobileOpen(false)}
+                  className="mt-2 bg-[#00ff87] text-black font-semibold px-5 py-3 rounded-full text-sm text-center hover:bg-white transition-all duration-200"
+                >
+                  Start Analyzing →
+                </Link>
+              )}
             </div>
           </motion.div>
         )}

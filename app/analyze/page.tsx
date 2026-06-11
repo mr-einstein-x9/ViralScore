@@ -188,14 +188,21 @@ export default function AnalyzePage() {
     ? "w-full md:w-[calc(100%-72px)] transition-all duration-[350ms] ease-in-out opacity-100"
     : "w-full md:w-1/2 transition-all duration-[350ms] ease-in-out";
 
-  // Load history count
+  // Load history count and handle custom openHistory event
   useEffect(() => {
     function updateCount() {
       setHistoryCount(getHistory().length);
     }
+    const handleOpenHistory = () => {
+      setHistoryOpen(true);
+    };
     updateCount();
     window.addEventListener("historyUpdated", updateCount);
-    return () => window.removeEventListener("historyUpdated", updateCount);
+    window.addEventListener("openHistory", handleOpenHistory);
+    return () => {
+      window.removeEventListener("historyUpdated", updateCount);
+      window.removeEventListener("openHistory", handleOpenHistory);
+    };
   }, []);
 
   // Mobile: scroll results into view after analysis
@@ -567,21 +574,6 @@ export default function AnalyzePage() {
               Get your virality score in seconds. Powered by Groq Llama 3.3.
             </p>
           </div>
-          
-          {/* History Button */}
-          <button
-            onClick={() => setHistoryOpen(true)}
-            className="border border-[#222] text-[#888] hover:border-[#00ff87] hover:text-[#00ff87] 
-                       px-4 py-2 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors self-start sm:self-auto"
-          >
-            <Clock size={16} />
-            <span>History</span>
-            {historyCount > 0 && (
-              <span className="bg-[#00ff87] text-black text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
-                {historyCount}
-              </span>
-            )}
-          </button>
         </div>
 
         {/* Two-column layout: stacks on mobile, side-by-side on desktop with flex transition */}
