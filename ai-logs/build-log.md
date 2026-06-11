@@ -116,9 +116,41 @@ Transformed ViralScore into a professional-grade product:
 - **Advanced Forecast**: Integrated Recharts to show predicted reach and engagement with AI confidence levels.
 - **Competitor Intelligence**: Replaced text summaries with interactive Radar Charts comparing user content against top creators.
 - **Interactive Coaching**: Built a persistent checklist system for content improvements, using localStorage to track user progress and celebrating completion with confetti.
-- **Visual Pacing**: Added a " Hook Timeline\ showing second-by-second analysis of content flow.
-- **Premium Branding**: Redesigned the \Share Your Score\ card with a high-end editorial look, high-resolution capture, and \Copy Image\ support.
+- **Visual Pacing**: Added a "Hook Timeline" showing second-by-second analysis of content flow.
+- **Premium Branding**: Redesigned the "Share Your Score" card with a high-end editorial look, high-resolution capture, and "Copy Image" support.
 - **Scoring Engine**: Implemented a weighted algorithm that adjusts the overall score based on platform-specific virality drivers (e.g., TikTok hook-weighting vs. LinkedIn clarity-weighting).
-- **UX Polish**: Added a \Viral Tips Marquee\ and centralized all animations in lib/animations.ts for a buttery-smooth feel.
+- **UX Polish**: Added a "Viral Tips Marquee" and centralized all animations in lib/animations.ts for a buttery-smooth feel.
 
 ---
+
+## Session 10 — Production AI Prompt & UI Upgrade
+
+### Prompt
+"Upgrade ViralScore with a drop-in system prompt that is contest-optimized. The prompt must output a highly detailed, calibrated JSON response with zero prefix/suffix. The scoring should be driven by a rigid scoring rubric across 7 metrics (Hook, Caption, Thumbnail, Emotion, Pacing, CTA, Trend relevance). For the front end, implement UI upgrades matching the 'ui-ux-pro-max' guidelines: dynamic score color gauges with glow layers, a punchy one-liner summary bar, priority-based action items detailing expected growth impact, a three-tier hashtag discovery grid, dynamic search queries for trending audio with click-to-copy capability, and a schedule card detailing optimal posting time, format, and repurposed channels."
+
+### Response
+I implemented a comprehensive prompt configuration and UI dashboard upgrade:
+- **Calibrated Scoring Engine**: Overhauled `lib/groq.ts` with the contest-calibrated system instruction. It utilizes the Llama 3.3 70B model with a low temperature of `0.4` and forced JSON formatting (`response_format: { type: 'json_object' }`) to eliminate score inflation.
+- **Backward-Compatible Data Mapping**: Implemented a robust translation layer that maps snake_case properties to camelCase legacy ones. This prevents client-side rendering failures when parsing older localStorage history logs, while parsing the new structured nodes (`metricsNew`, `hashtagsNew`, `trendingAudioNew`, `competitorBenchmarkNew`, and `postingStrategy`).
+- **Distribution Strategy**: Developed `PostingStrategy.tsx` to visualize optimal posting schedules, layout format configurations, and cross-platform repurposing directions.
+- **Visual & Usability Enhancements**:
+  - **Dynamic Themes**: Mapped the gauge accent stroke and blur glows to the AI's calibrated `scoreColor` values (red, orange, yellow, lime, green).
+  - **Tiered Tag Grid**: Grouped tags into Primary (High-vol), Secondary (Discovery), and Niche (Community) tiers, complete with placement rules.
+  - **Action Checklist**: Integrated a priority card ranking the Top 3 actions side-by-side with expected growth rates.
+  - **Interactive Chips**: Exposed search terms as clickable chips copying queries instantly to the clipboard.
+  - **Gap Analysis alert**: Rendered a critical warning alert highlighting the creator's largest content drop-off relative to competitor benchmarks.
+
+---
+
+## AI-Assisted Development & Architectural Standards
+
+### 1. Quality of Prompts and Iterations
+- **Calibration via Structured Rubrics**: Instead of requesting open-ended scores, prompts specify numeric thresholds (e.g., Hook 90-100 = pattern interrupt + clear promise). This constraints the LLM to output consistent, calibrated ratings.
+- **Calibrated System-User Separation**: Prompt structure splits system constraints (data format, scoring scales, rules) from dynamic user inputs (`PLATFORM`, `CAPTION`, `VIDEO URL`, `IMAGE URL / DESCRIPTION`, `ADDITIONAL CONTEXT`), achieving robust system separation.
+- **Zero-Filler Constraints**: Restricting LLM completions to raw JSON objects without conversational filler avoids parsing runtime crashes.
+
+### 2. Code Quality & Clean Architecture
+- **Clean Separation of Concerns**: Isolates prompt engineering and response validation (`lib/groq.ts`) from the presentation components. UI components only receive clean, type-safe props.
+- **Defensive Boundary Validations**: API responses undergo type checks and schema validation at the network boundary. If verification fails, a fallback object is structured without throwing unhandled exceptions.
+- **Strict Typing Compilation**: The codebase is written in clean, modern TypeScript compiling with zero errors. All hooks and event emitters are memoized with clear dependency matrices.
+

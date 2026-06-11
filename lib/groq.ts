@@ -3,6 +3,7 @@ import Groq from "groq-sdk";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type ViralAnalysis = {
+  // Legacy fields (kept for backward compatibility and to avoid breaking client views/history)
   overallScore:       number;
   scoreLabel:         string;
   platform:           string;
@@ -35,6 +36,92 @@ export type ViralAnalysis = {
   predictedLikes:     { min: number; max: number; confidence: "Low" | "Moderate" | "High" };
   predictedComments:  { min: number; max: number; confidence: "Low" | "Moderate" | "High" };
   predictedShares:    { min: number; max: number; confidence: "Low" | "Moderate" | "High" };
+
+  // New Rich Fields (populated by the upgraded contest-optimized prompt)
+  scoreColor?:        "red" | "orange" | "yellow" | "lime" | "green";
+  oneLiner?:          string;
+  
+  metricsNew?: {
+    hookStrength: {
+      score: number;
+      label: string;
+      first3SecondsAnalysis: string;
+      improvedHook: string;
+    };
+    captionClarity: {
+      score: number;
+      label: string;
+      analysis: string;
+      rewrittenCaption: string;
+    };
+    thumbnailRating: {
+      score: number;
+      label: string;
+      analysis: string;
+      improvements: string[];
+    };
+    emotionalTrigger: {
+      score: number;
+      label: string;
+      dominantEmotion: string;
+      analysis: string;
+      amplificationTip: string;
+    };
+    pacing: {
+      score: number;
+      label: string;
+      analysis: string;
+      recommendation: string;
+    };
+    callToAction: {
+      score: number;
+      label: string;
+      analysis: string;
+      improvedCta: string;
+    };
+    trendingRelevance: {
+      score: number;
+      label: string;
+      analysis: string;
+    };
+  };
+
+  hashtagsNew?: {
+    primary: string[];
+    secondary: string[];
+    niche: string[];
+    strategy: string;
+  };
+
+  trendingAudioNew?: {
+    audioType: string;
+    energyMatch: string;
+    whyItWorks: string;
+    platformTip: string;
+    sampleSearchTerms: string[];
+  };
+
+  competitorBenchmarkNew?: {
+    contentTier: string;
+    percentileEstimate: number;
+    howYouCompare: string;
+    topPerformerTraits: string[];
+    gapAnalysis: string;
+  };
+
+  top3Actions?: {
+    priority: number;
+    action: string;
+    expectedImpact: string;
+  }[];
+
+  platformSpecificTips?: string[];
+
+  postingStrategy?: {
+    bestTime: string;
+    contentFormat: string;
+    crossPlatformPotential: string;
+  };
 };
 
 // ── Params ────────────────────────────────────────────────────────────────────
@@ -47,186 +134,73 @@ type AnalyzeContentParams = {
   fileData?:   string; // base64
 };
 
-// ── Schema reference (inlined into prompt) ────────────────────────────────────
+// ── Engagement Predictor Helper ───────────────────────────────────────────────
 
-const SCHEMA_REFERENCE = `
-{
-  "overallScore": number,
-  "scoreLabel": string,
-  "platform": string,
-  "hookStrength": number,
-  "captionClarity": number,
-  "emotionalTrigger": number,
-  "trendingRelevance": number,
-  "callToAction": number,
-  "thumbnailRating": number,
-  "hookAnalysis": string,
-  "captionSuggestions": [string, string, string],
-  "captionRewrites": [string, string, string],
-  "hashtags": [10 strings each starting with #],
-  "competitorInsight": {
-    "summary": string,
-    "competitorMetrics": {
-      "hookStrength": number,
-      "captionClarity": number,
-      "emotionalTrigger": number,
-      "trendingRelevance": number,
-      "callToAction": number,
-      "thumbnailRating": number
-    },
-    "competitorNames": [string, string, string]
-  },
-  "improvements": [string x5],
-  "strengths": [string x3],
-  "hookTimeline": [
-    { "time": "0s", "label": "The Hook", "impact": "Positive" },
-    { "time": "3s", "label": "The Transition", "impact": "Neutral" },
-    { "time": "10s", "label": "The Value Drop", "impact": "Positive" }
-  ],
-  "predictedViews": { "min": number, "max": number, "confidence": "Low" | "Moderate" | "High" },
-  "predictedLikes": { "min": number, "max": number, "confidence": "Low" | "Moderate" | "High" },
-  "predictedComments": { "min": number, "max": number, "confidence": "Low" | "Moderate" | "High" },
-  "predictedShares": { "min": number, "max": number, "confidence": "Low" | "Moderate" | "High" }
-}
-`.trim();
+function calculatePredictedEngagement(
+  type: "views" | "likes" | "comments" | "shares",
+  platform: string,
+  score: number
+) {
+  let baseViews = 0;
+  if (platform === "TikTok") baseViews = 5000;
+  else if (platform === "YouTube") baseViews = 4000;
+  else if (platform === "Instagram") baseViews = 3000;
+  else if (platform === "Twitter/X") baseViews = 2000;
+  else baseViews = 1200; // LinkedIn
 
-const PLATFORM_WEIGHTS: Record<string, Record<string, number>> = {
-  TikTok:      { hook: 0.40, trend: 0.40, emotion: 0.10, caption: 0.05, cta: 0.05 },
-  Instagram:   { hook: 0.30, trend: 0.30, emotion: 0.20, caption: 0.10, cta: 0.10 },
-  YouTube:     { hook: 0.35, visual: 0.25, emotion: 0.20, trend: 0.10, cta: 0.10 },
-  LinkedIn:    { caption: 0.30, cta: 0.30, emotion: 0.20, hook: 0.15, trend: 0.05 },
-  "Twitter/X": { hook: 0.30, caption: 0.30, trend: 0.20, emotion: 0.10, cta: 0.10 },
-};
+  // Non-linear scaling for virality: higher scores get exponentially higher views!
+  const multiplier = Math.pow(score / 70, 3.5);
+  const viewsMin = Math.round(baseViews * multiplier * 0.6);
+  const viewsMax = Math.round(baseViews * multiplier * 1.6);
+  
+  let min = 0;
+  let max = 0;
+  if (type === "views") {
+    min = viewsMin;
+    max = viewsMax;
+  } else if (type === "likes") {
+    let rate = 0.08;
+    if (platform === "TikTok") rate = 0.15;
+    else if (platform === "Instagram") rate = 0.10;
+    else if (platform === "LinkedIn") rate = 0.05;
+    min = Math.round(viewsMin * rate * 0.8);
+    max = Math.round(viewsMax * rate * 1.2);
+  } else if (type === "comments") {
+    let rate = 0.008;
+    if (platform === "TikTok") rate = 0.012;
+    else if (platform === "LinkedIn") rate = 0.02;
+    min = Math.round(viewsMin * rate * 0.7);
+    max = Math.round(viewsMax * rate * 1.3);
+  } else { // shares
+    let rate = 0.015;
+    if (platform === "TikTok") rate = 0.03;
+    else if (platform === "Instagram") rate = 0.025;
+    min = Math.round(viewsMin * rate * 0.7);
+    max = Math.round(viewsMax * rate * 1.3);
+  }
 
-export function getScoreLabel(score: number): string {
-  if (score >= 90) return "Viral Rocket";
-  if (score >= 75) return "High Potential";
-  if (score >= 60) return "Solid Content";
-  if (score >= 40) return "Needs Polishing";
-  return "Underperform";
-}
+  min = Math.max(1, min);
+  max = Math.max(min + 5, max);
 
-// ── Graceful fallback ─────────────────────────────────────────────────────────
-
-function fallbackAnalysis(message: string): ViralAnalysis {
-  return {
-    overallScore:       0,
-    scoreLabel:         "Low",
-    platform:           "Unknown",
-    hookStrength:       0,
-    captionClarity:     0,
-    emotionalTrigger:   0,
-    trendingRelevance:  0,
-    callToAction:       0,
-    thumbnailRating:    0,
-    hookAnalysis:       `Analysis error: ${message}`,
-    captionSuggestions: ["", "", ""],
-    captionRewrites:    ["", "", ""],
-    hashtags:           Array(10).fill("#error"),
-    competitorInsight:  {
-      summary: "Unable to retrieve competitor insight.",
-      competitorMetrics: {
-        hookStrength: 0,
-        captionClarity: 0,
-        emotionalTrigger: 0,
-        trendingRelevance: 0,
-        callToAction: 0,
-        thumbnailRating: 0,
-      },
-      competitorNames: ["Comp A", "Comp B", "Comp C"],
-    },
-    improvements:       Array(5).fill("Unable to generate improvement."),
-    strengths:          Array(3).fill("Unable to detect strength."),
-    hookTimeline:       [],
-    predictedViews:     { min: 0, max: 0, confidence: "Low" },
-    predictedLikes:     { min: 0, max: 0, confidence: "Low" },
-    predictedComments:  { min: 0, max: 0, confidence: "Low" },
-    predictedShares:    { min: 0, max: 0, confidence: "Low" },
-  };
+  const confidence: "Low" | "Moderate" | "High" = score >= 85 ? "High" : score >= 60 ? "Moderate" : "Low";
+  return { min, max, confidence };
 }
 
 // ── Validation guard ──────────────────────────────────────────────────────────
 
-function validateAnalysis(obj: unknown): obj is ViralAnalysis {
+function validateApiResponse(obj: any): boolean {
   if (!obj || typeof obj !== "object") return false;
-  const o = obj as Record<string, unknown>;
-
-  const numericFields: (keyof ViralAnalysis)[] = [
-    "overallScore","hookStrength","captionClarity",
-    "emotionalTrigger","trendingRelevance","callToAction","thumbnailRating",
-  ];
-  for (const field of numericFields) {
-    if (typeof o[field] !== "number" || o[field] < 0 || o[field] > 100) {
-       console.error(`Validation failed: ${field} must be 0-100`);
-       return false;
-    }
-  }
-
-  const stringFields: (keyof ViralAnalysis)[] = [
-    "scoreLabel","platform","hookAnalysis",
-  ];
-  for (const field of stringFields) {
-    if (typeof o[field] !== "string" || (o[field] as string).length < 10) {
-       console.error(`Validation failed: ${field} too short or missing`);
-       return false;
-    }
-  }
-
-  const arrayFields: { key: keyof ViralAnalysis; minLen: number; minStrLen?: number }[] = [
-    { key: "captionSuggestions", minLen: 3  },
-    { key: "captionRewrites",    minLen: 3, minStrLen: 30 },
-    { key: "hashtags",           minLen: 5  },
-    { key: "improvements",       minLen: 5, minStrLen: 20 },
-    { key: "strengths",          minLen: 3  },
-  ];
-  for (const { key, minLen, minStrLen } of arrayFields) {
-    const arr = o[key] as unknown[];
-    if (!Array.isArray(arr) || arr.length < minLen) {
-       console.error(`Validation failed: ${key} must have ${minLen} items`);
-       return false;
-    }
-    if (minStrLen) {
-      for (const s of arr) {
-        if (typeof s !== "string" || s.length < minStrLen) {
-           console.error(`Validation failed: item in ${key} too short`);
-           return false;
-        }
-      }
-    }
-  }
-
-  // Competitor name validation
-  const ci = o.competitorInsight as any;
-  if (!ci || typeof ci !== "object") return false;
-  if (!Array.isArray(ci.competitorNames) || ci.competitorNames.length < 3) return false;
-  const genericNames = ["top creator a", "top creator b", "top creator c", "creator a", "creator b", "creator c"];
-  for (const name of ci.competitorNames) {
-    if (genericNames.includes(name.toLowerCase())) {
-       console.error(`Validation failed: Generic competitor name detected: ${name}`);
-       return false;
-    }
-  }
-
-  // Predicted values validation
-  const engagementFields: (keyof ViralAnalysis)[] = [
-    "predictedViews", "predictedLikes", "predictedComments", "predictedShares"
-  ];
-  for (const field of engagementFields) {
-    const ef = o[field] as any;
-    if (!ef || typeof ef !== "object") return false;
-    if (typeof ef.min !== "number" || typeof ef.max !== "number" || ef.min > ef.max) return false;
-  }
+  
+  // Basic structures check
+  if (typeof obj.overall_score !== "number") return false;
+  if (typeof obj.score_label !== "string") return false;
+  if (typeof obj.metrics !== "object") return false;
+  if (typeof obj.hashtags !== "object") return false;
+  if (typeof obj.trending_audio !== "object") return false;
+  if (typeof obj.competitor_benchmark !== "object") return false;
+  if (!Array.isArray(obj.top_3_actions)) return false;
 
   return true;
-}
-
-// ── Strip markdown fences util ────────────────────────────────────────────────
-
-function stripFences(text: string): string {
-  return text
-    .replace(/```json\n?/gi, "")
-    .replace(/```\n?/g, "")
-    .trim();
 }
 
 // ── Core analyzeContent function ──────────────────────────────────────────────
@@ -234,7 +208,7 @@ function stripFences(text: string): string {
 export async function analyzeContent(
   params: AnalyzeContentParams
 ): Promise<ViralAnalysis> {
-  const { contentType, content, platform, context } = params;
+  const { contentType, content, platform, context, fileData } = params;
 
   if (!process.env.GROQ_API_KEY) {
     throw new Error("GROQ_API_KEY is not configured in environment variables.");
@@ -242,68 +216,216 @@ export async function analyzeContent(
 
   const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-  const contentTypeLabel: Record<AnalyzeContentParams["contentType"], string> = {
-    caption:   "Text Caption",
-    video_url: "Video URL",
-    image_url: "Image URL",
-  };
+  // ── Setup the System Prompt ───────────────────────────────────────────────
+  const systemInstruction = `You are ViralScore AI — a professional virality analyst trained on millions of high-performing posts across TikTok, Instagram Reels, YouTube Shorts, LinkedIn, and Twitter/X. You think like a top-1% growth strategist: precise, ruthless, specific.
 
-  const systemInstruction = `You are an expert social media virality analyst. You analyze SPECIFIC content provided by users. You NEVER give generic advice. Every observation, score, and recommendation must reference the exact words, themes, and structure of the user's content.
+Your job is to analyze the provided content and return a single valid JSON object — nothing else. No preamble, no markdown fences, no explanation outside the JSON.
 
-CRITICAL RULE: If you cannot derive something from the user's content, use realistic, varied data based on the detected niche/industry. Never repeat the same values across different analyses.
+---
 
-STEP 1: First, identify the niche/topic from the content (e.g., fitness, cooking, tech review, comedy, motivation, fashion, etc.)
+SCORING RUBRIC (use this to calibrate every score 0–100):
 
-STEP 2: Generate the analysis with these rules:
+HOOK STRENGTH — The first 3 seconds / opening line.
+  90–100 : Pattern interrupt + emotional spike + clear promise. Impossible to scroll past.
+  70–89  : Clear hook with tension or curiosity gap. Most viewers stay.
+  50–69  : Functional but forgettable. Nothing makes the viewer commit.
+  30–49  : No hook. Starts mid-thought, background noise, or weak opener.
+  0–29   : Actively repels attention. Confusion, silence, or slow intro.
 
-hookStrength (0-100): Score based on the FIRST sentence or opening. Quote the exact opening words in the explanation. If the hook creates curiosity, urgency, or emotion, score higher.
+CAPTION CLARITY — Does the text communicate value instantly?
+  90–100 : One read = clear what it is, why it matters, what to do.
+  70–89  : Good message, slightly verbose or buried.
+  50–69  : Meaning is there but takes effort to find.
+  0–49   : Confusing, too long, jargon-heavy, or no message.
 
-captionClarity (0-100): Score based on how clearly the caption communicates its message. Reference specific phrasing.
+THUMBNAIL / VISUAL IMPACT — Static image or first frame.
+  90–100 : High contrast, face/emotion visible, readable text if any, clear focal point.
+  70–89  : Visually clean but lacks a differentiating element.
+  50–69  : Generic composition. Won't stop the scroll.
+  0–49   : Cluttered, dark, no focal point, or no visual context.
 
-emotionalTrigger (0-100): Score based on emotional appeal. Identify which emotion (humor, inspiration, fear, curiosity, etc.) and reference specific words.
+EMOTIONAL TRIGGER — Does it make people feel something shareable?
+  90–100 : Strong single emotion (awe, rage, laughter, fear, envy). Feels personal.
+  70–89  : Emotional resonance present but diluted.
+  50–69  : Informational but flat. No feeling attached.
+  0–49   : Neutral or confused emotional signal.
 
-trendingRelevance (0-100): Score based on whether the content aligns with current trends in the detected niche.
+PACING — Rhythm, density, and momentum of the content.
+  90–100 : Every second earns its place. No dead zones.
+  70–89  : Good momentum with 1–2 slow patches.
+  50–69  : Noticeable drag. Viewers likely tap out before the end.
+  0–49   : Front-loaded info dump or meandering structure.
 
-callToAction (0-100): Score based on how well the content prompts engagement. Quote the CTA if present.
+CALL TO ACTION — Does it direct behavior (save, share, comment, follow, click)?
+  90–100 : Specific, emotionally framed CTA placed at peak engagement moment.
+  70–89  : CTA present but generic ("follow for more").
+  50–69  : Implied but not stated.
+  0–49   : No CTA. Viewer has nowhere to go.
 
-thumbnailRating (0-100): Score based on the described visual elements (if image_url/video_url) or imagined thumbnail based on text.
+TRENDING RELEVANCE — Is this riding a current wave?
+  90–100 : Uses a live trend (audio, format, challenge) with original spin.
+  70–89  : Relevant topic but trend execution is generic.
+  50–69  : Evergreen content — stable but no trend boost.
+  0–49   : Off-trend, dated format, or tone-deaf to current platform culture.
 
-overallScore (0-100): Calculate using platform weights (see below). The overallScore must be REASONABLE and VARIED across different inputs, not always 70-85.
+OVERALL SCORE = weighted average:
+  Hook: 25% | Emotional Trigger: 20% | Caption: 15% | Thumbnail: 15% |
+  Pacing: 10% | CTA: 10% | Trending: 5%
 
-captionRewrites (EXACTLY 3 strings): Each MUST be a complete, copy-paste-ready caption that improves on the original. Do NOT write "Make it shorter" — write the actual shorter caption. Each rewrite must be significantly different from the others.
-Rewrite 1: Focus on stronger hook
-Rewrite 2: Focus on emotional appeal
-Rewrite 3: Focus on clarity/brevity
+---
 
-hookAnalysis (string): Analyze the first 3 seconds or opening line SPECIFICALLY. Quote the exact hook. Say what works and what doesn't. Never write "The hook is engaging." Instead write "The opening line 'X' creates curiosity because..."
+PLATFORM CONTEXT (apply these norms):
 
-hashtags (EXACTLY 5 strings): Generate hashtags RELEVANT TO THE CONTENT'S SPECIFIC TOPIC. Include 2 niche-specific, 2 trending/broad, 1 branded/community tag. NEVER use the same set across analyses.
+TikTok      : Hook in frame 1. Trending audio is +40% reach. <150 char caption. 3–7 hashtags.
+Instagram   : Hook in caption line 1 (before "more"). Aesthetic > raw. 5–10 hashtags.
+YouTube     : Thumbnail = 70% of CTR. Title = hook. First 30s decide retention.
+LinkedIn    : Hook in line 1 before fold. Storytelling > metrics. 0–3 hashtags. Vulnerable tone wins.
+Twitter/X   : Hook = full tweet if short. Threads: first tweet must standalone. 0–2 hashtags.
 
-improvements (EXACTLY 5 strings): Each must be a SPECIFIC, actionable suggestion referencing the user's content. "Improve the hook" is not specific. "Replace the opening question with a bold statement like '...'" is specific.
+---
 
-competitorInsight: MUST vary per niche.
-summary: Compare the user's content to what top creators in THIS SPECIFIC NICHE do differently.
-competitorNames: Generate 3 realistic-sounding creator names (not "Top Creator A"). Vary them per analysis.
-competitorMetrics: Must be DIFFERENT from the user's scores (difference of at least 5-15 points in each metric).
+COMPETITOR BENCHMARK METHODOLOGY:
+Compare the submitted content against the top 10% of performing content in its category on the specified platform. Reference known performance patterns (not named creators). Position the user's content as: Viral Top 10% / Above Average Top 30% / Average / Below Average / Low Potential.
 
-predictedViews, predictedLikes, predictedComments, predictedShares: Vary the ranges significantly per analysis. Do NOT always return 5K-12K views. Match the quality of content: poor content gets lower ranges (e.g., 200-800 views), great content gets higher ranges (e.g., 50K-200K views).
+---
 
-Platform weights for overallScore calculation:
-TikTok: hookStrength 30%, emotionalTrigger 25%, trendingRelevance 20%, thumbnailRating 10%, captionClarity 10%, callToAction 5%
-Instagram: thumbnailRating 25%, captionClarity 20%, emotionalTrigger 20%, hookStrength 15%, trendingRelevance 10%, callToAction 10%
-YouTube: hookStrength 25%, captionClarity 20%, thumbnailRating 20%, callToAction 15%, trendingRelevance 10%, emotionalTrigger 10%
-LinkedIn: captionClarity 30%, callToAction 25%, emotionalTrigger 15%, hookStrength 15%, trendingRelevance 10%, thumbnailRating 5%
-Twitter/X: hookStrength 30%, captionClarity 25%, emotionalTrigger 20%, callToAction 15%, trendingRelevance 10%, thumbnailRating 0%
+OUTPUT — Return ONLY this JSON object, populated with real analysis:
 
-Return ONLY valid JSON matching the ViralAnalysis schema. No extra text.`;
+{
+  "overall_score": <0–100 integer>,
+  "score_label": <"Low Potential" | "Below Average" | "Average" | "Above Average" | "Viral Potential" | "Extremely Viral">,
+  "score_color": <"red" | "orange" | "yellow" | "lime" | "green">,
+  "one_liner": "<Single punchy sentence: what's working and what's the #1 kill. Max 18 words.>",
+
+  "metrics": {
+    "hook_strength": {
+      "score": <0–100>,
+      "label": "<Weak|Average|Good|Strong|Exceptional>",
+      "first_3_seconds_analysis": "<What specifically happens in the opening. What viewer feels. What the gap is.>",
+      "improved_hook": "<Rewritten opening line or frame description that would score 85+. Be specific.>"
+    },
+    "caption_clarity": {
+      "score": <0–100>,
+      "label": "<Weak|Average|Good|Strong|Exceptional>",
+      "analysis": "<What the caption does well and what weakens it. Specific line callouts.>",
+      "rewritten_caption": "<A full rewritten version of the caption optimized for this platform. Include line breaks as \\n.>"
+    },
+    "thumbnail_rating": {
+      "score": <0–100>,
+      "label": "<Weak|Average|Good|Strong|Exceptional>",
+      "analysis": "<What's working or broken in the visual. Reference specific elements: contrast, text, face, composition.>",
+      "improvements": [
+        "<Concrete change 1>",
+        "<Concrete change 2>",
+        "<Concrete change 3>"
+      ]
+    },
+    "emotional_trigger": {
+      "score": <0–100>,
+      "label": "<Weak|Average|Good|Strong|Exceptional>",
+      "dominant_emotion": "<curiosity|awe|anger|laughter|fear|envy|inspiration|nostalgia|none>",
+      "analysis": "<Why this emotion fires or doesn't. What specific word, visual, or moment triggers it.>",
+      "amplification_tip": "<One specific change to intensify the emotional hit.>"
+    },
+    "pacing": {
+      "score": <0–100>,
+      "label": "<Weak|Average|Good|Strong|Exceptional>",
+      "analysis": "<Where momentum builds and where it dies. Call out the specific dead zone if any.>",
+      "recommendation": "<Specific structural change: cut X seconds, reorder Y, front-load Z.>"
+    },
+    "call_to_action": {
+      "score": <0–100>,
+      "label": "<Weak|Average|Good|Strong|Exceptional>",
+      "analysis": "<What CTA exists, where it is, and why it works or fails.>",
+      "improved_cta": "<Exact rewritten CTA text + recommended placement in the content.>"
+    },
+    "trending_relevance": {
+      "score": <0–100>,
+      "label": "<Weak|Average|Good|Strong|Exceptional>",
+      "analysis": "<What trend or format this aligns with or misses. Platform-specific.>"
+    }
+  },
+
+  "hashtags": {
+    "primary": ["<3–5 high-volume hashtags for this platform and topic>"],
+    "secondary": ["<4–6 mid-volume hashtags for discovery>"],
+    "niche": ["<3–4 low-competition hashtags for community reach>"],
+    "strategy": "<One sentence: how to order and deploy these hashtags for max reach on this platform.>"
+  },
+
+  "trending_audio": {
+    "audio_type": "<e.g., 'Upbeat lo-fi' | 'Dramatic orchestral build' | 'Viral sound effect' | 'Spoken word trend'>",
+    "energy_match": "<High/Medium/Low>",
+    "why_it_works": "<Why this audio type fits the emotion and pacing of this content.>",
+    "platform_tip": "<How to find trending audio of this type on the specified platform right now.>",
+    "sample_search_terms": ["<search term 1>", "<search term 2>", "<search term 3>"]
+  },
+
+  "competitor_benchmark": {
+    "content_tier": "<Viral Top 10% | Above Average Top 30% | Average | Below Average | Low Potential>",
+    "percentile_estimate": <0–100>,
+    "how_you_compare": "<2–3 sentences. What top performers in this niche do differently. Be specific.>",
+    "top_performer_traits": [
+      "<Trait viral content in this category consistently has #1>",
+      "<Trait #2>",
+      "<Trait #3>"
+    ],
+    "gap_analysis": "<The single biggest gap between this content and a top-10% post on this platform.>"
+  },
+
+  "top_3_actions": [
+    {
+      "priority": 1,
+      "action": "<Specific, doable change — not 'improve your hook' but exactly HOW.>",
+      "expected_impact": "<e.g., '+20–35% watch time' | 'Doubles share likelihood' | '+15% CTR on thumbnail'>"
+    },
+    {
+      "priority": 2,
+      "action": "<Second most impactful change>",
+      "expected_impact": "<Expected result>"
+    },
+    {
+      "priority": 3,
+      "action": "<Third change>",
+      "expected_impact": "<Expected result>"
+    }
+  ],
+
+  "platform_specific_tips": [
+    "<Tip 1 specific to the platform's current algorithm behavior>",
+    "<Tip 2 — format, posting window, or engagement tactic>",
+    "<Tip 3 — a counterintuitive or advanced insight most creators miss>"
+  ],
+
+  "posting_strategy": {
+    "best_time": "<Day and time range for peak engagement on this platform for this content type>",
+    "content_format": "<The ideal format variant: Reel vs Carousel vs Static vs Story vs Thread, etc.>",
+    "cross_platform_potential": "<Which other platform this content could be repurposed for and how to adapt it.>"
+  }
+}
+
+RULES:
+- Return ONLY valid JSON. Zero text outside the object.
+- Never use placeholder values. Every field must reflect real analysis of the actual input.
+- If no visual is provided, score thumbnail_rating based on the described first frame or set to null.
+- If no caption is provided, focus analysis on video/image context.
+- Scores must feel calibrated — do not cluster everything in the 70s. Differentiate.
+- improved_hook and rewritten_caption must be ready to copy-paste, not templates.`;
+
+  // ── Format variables for User Prompt ──────────────────────────────────────
+  const captionValue = contentType === "caption" ? content : (context || "Not provided");
+  const videoUrlValue = contentType === "video_url" ? content : "Not provided";
+  const imageUrlOrDescValue = contentType === "image_url" ? (fileData ? `Uploaded file: ${content}` : content) : "Not provided";
+  const additionalContextValue = context || "None";
 
   const userPrompt = `
-Analyze this content for ${platform}: ${content}
-${context ? `Additional Context: ${context}` : ""}
-${contentType === "video_url" || contentType === "image_url" ? `Analyze this as a ${contentType.split("_")[0]} post on ${platform}. URL: ${content}` : ""}
+PLATFORM: ${platform}
+CAPTION: ${captionValue}
+VIDEO URL: ${videoUrlValue}
+IMAGE URL / DESCRIPTION: ${imageUrlOrDescValue}
+ADDITIONAL CONTEXT: ${additionalContextValue}
 
-Return your analysis as a raw JSON object that EXACTLY matches this schema:
-${SCHEMA_REFERENCE}
+Analyze this content and return the JSON.
 `.trim();
 
   let rawText = "";
@@ -315,8 +437,9 @@ ${SCHEMA_REFERENCE}
         { role: "user", content: userPrompt }
       ],
       model: "llama-3.3-70b-versatile",
-      temperature: 0.5,
-      response_format: { type: "json_object" }
+      temperature: 0.4, // low temp = consistent, calibrated scores
+      max_tokens: 2000,
+      response_format: { type: "json_object" } // force JSON mode
     });
     
     rawText = chatCompletion.choices[0]?.message?.content?.trim() || "";
@@ -326,52 +449,176 @@ ${SCHEMA_REFERENCE}
     throw new Error(`Groq API Error: ${msg}`);
   }
 
-  // ── Attempt 1: parse as-is ────────────────────────────────────────────────
-  let parsed: unknown;
+  // ── JSON Parse ────────────────────────────────────────────────────────────
+  let parsed: any;
   try {
     parsed = JSON.parse(rawText);
   } catch {
-    // ── Attempt 2: strip fences then parse ───────────────────────────────
-    const cleaned = stripFences(rawText);
+    // Strip possible markdown fences if they leaked through
+    const cleaned = rawText
+      .replace(/```json\n?/gi, "")
+      .replace(/```\n?/g, "")
+      .trim();
     try {
       parsed = JSON.parse(cleaned);
     } catch {
-      console.error("[analyzeContent] JSON parse failed. Raw:", rawText.slice(0, 300));
-      return fallbackAnalysis("Failed to parse AI response as JSON.");
+      console.error("[analyzeContent] JSON parse failed. Raw text:", rawText.slice(0, 300));
+      throw new Error("Failed to parse AI response as JSON.");
     }
   }
 
-  // ── Validate shape ────────────────────────────────────────────────────────
-  if (!validateAnalysis(parsed)) {
-    console.error("[analyzeContent] Validation failed. Object:", JSON.stringify(parsed).slice(0, 300));
-    return fallbackAnalysis("AI returned an unexpected response shape.");
+  // ── Validate API response shape ───────────────────────────────────────────
+  if (!validateApiResponse(parsed)) {
+    console.error("[analyzeContent] Schema validation failed. Object:", JSON.stringify(parsed).slice(0, 300));
+    throw new Error("AI returned an unexpected response shape.");
   }
 
-  const result = parsed as ViralAnalysis;
+  // ── Translate snake_case keys into camelCase for Legacy compatibility ──
+  const mappedResult: ViralAnalysis = {
+    // Legacy mapping
+    overallScore: parsed.overall_score ?? 0,
+    scoreLabel: parsed.score_label ?? "Average",
+    platform: platform,
+    hookStrength: parsed.metrics?.hook_strength?.score ?? 0,
+    captionClarity: parsed.metrics?.caption_clarity?.score ?? 0,
+    emotionalTrigger: parsed.metrics?.emotional_trigger?.score ?? 0,
+    trendingRelevance: parsed.metrics?.trending_relevance?.score ?? 0,
+    callToAction: parsed.metrics?.call_to_action?.score ?? 0,
+    thumbnailRating: parsed.metrics?.thumbnail_rating?.score ?? 0,
+    hookAnalysis: parsed.metrics?.hook_strength?.first_3_seconds_analysis ?? "No hook analysis.",
+    captionSuggestions: [parsed.metrics?.caption_clarity?.analysis ?? "No caption suggestions."],
+    captionRewrites: [
+      parsed.metrics?.caption_clarity?.rewritten_caption ?? "",
+      parsed.metrics?.hook_strength?.improved_hook ?? "",
+      parsed.metrics?.call_to_action?.improved_cta ?? ""
+    ].filter(Boolean),
+    hashtags: [
+      ...(parsed.hashtags?.primary || []),
+      ...(parsed.hashtags?.secondary || []),
+      ...(parsed.hashtags?.niche || [])
+    ],
+    competitorInsight: {
+      summary: parsed.competitor_benchmark?.how_you_compare ?? "",
+      competitorMetrics: {
+        hookStrength: Math.min(100, Math.max(0, (parsed.metrics?.hook_strength?.score ?? 70) + 12)),
+        captionClarity: Math.min(100, Math.max(0, (parsed.metrics?.caption_clarity?.score ?? 70) + 8)),
+        emotionalTrigger: Math.min(100, Math.max(0, (parsed.metrics?.emotional_trigger?.score ?? 70) + 10)),
+        trendingRelevance: Math.min(100, Math.max(0, (parsed.metrics?.trending_relevance?.score ?? 70) + 5)),
+        callToAction: Math.min(100, Math.max(0, (parsed.metrics?.call_to_action?.score ?? 70) + 15)),
+        thumbnailRating: Math.min(100, Math.max(0, (parsed.metrics?.thumbnail_rating?.score ?? 70) + 8)),
+      },
+      competitorNames: parsed.competitor_benchmark?.top_performer_traits?.slice(0, 3) || ["Elite Creator A", "Elite Creator B", "Elite Creator C"]
+    },
+    improvements: parsed.metrics?.thumbnail_rating?.improvements || parsed.top_3_actions?.map((a: any) => a.action) || [],
+    strengths: parsed.competitor_benchmark?.top_performer_traits || [],
+    hookTimeline: [
+      { 
+        time: "0s", 
+        label: `Opening hook: ${parsed.metrics?.hook_strength?.label || "Average"}`, 
+        impact: (parsed.metrics?.hook_strength?.score ?? 0) >= 80 ? "Positive" : (parsed.metrics?.hook_strength?.score ?? 0) >= 50 ? "Neutral" : "Negative" 
+      },
+      { 
+        time: "3s", 
+        label: `Pacing tempo: ${parsed.metrics?.pacing?.label || "Average"}`, 
+        impact: (parsed.metrics?.pacing?.score ?? 0) >= 80 ? "Positive" : (parsed.metrics?.pacing?.score ?? 0) >= 50 ? "Neutral" : "Negative" 
+      },
+      { 
+        time: "10s", 
+        label: `CTA transition: ${parsed.metrics?.call_to_action?.label || "Average"}`, 
+        impact: (parsed.metrics?.call_to_action?.score ?? 0) >= 80 ? "Positive" : (parsed.metrics?.call_to_action?.score ?? 0) >= 50 ? "Neutral" : "Negative" 
+      }
+    ],
+    predictedViews: calculatePredictedEngagement("views", platform, parsed.overall_score),
+    predictedLikes: calculatePredictedEngagement("likes", platform, parsed.overall_score),
+    predictedComments: calculatePredictedEngagement("comments", platform, parsed.overall_score),
+    predictedShares: calculatePredictedEngagement("shares", platform, parsed.overall_score),
 
-  // ── Apply Platform-Specific Weights ─────────────────────────────────────
-  const weights = PLATFORM_WEIGHTS[params.platform] || PLATFORM_WEIGHTS.TikTok;
-  let weightedScore = 0;
+    // Enriched properties mapped directly from the AI response
+    scoreColor: parsed.score_color ?? "yellow",
+    oneLiner: parsed.one_liner ?? "",
+    
+    metricsNew: {
+      hookStrength: {
+        score: parsed.metrics?.hook_strength?.score ?? 0,
+        label: parsed.metrics?.hook_strength?.label ?? "",
+        first3SecondsAnalysis: parsed.metrics?.hook_strength?.first_3_seconds_analysis ?? "",
+        improvedHook: parsed.metrics?.hook_strength?.improved_hook ?? ""
+      },
+      captionClarity: {
+        score: parsed.metrics?.caption_clarity?.score ?? 0,
+        label: parsed.metrics?.caption_clarity?.label ?? "",
+        analysis: parsed.metrics?.caption_clarity?.analysis ?? "",
+        rewrittenCaption: parsed.metrics?.caption_clarity?.rewritten_caption ?? ""
+      },
+      thumbnailRating: {
+        score: parsed.metrics?.thumbnail_rating?.score ?? 0,
+        label: parsed.metrics?.thumbnail_rating?.label ?? "",
+        analysis: parsed.metrics?.thumbnail_rating?.analysis ?? "",
+        improvements: parsed.metrics?.thumbnail_rating?.improvements ?? []
+      },
+      emotionalTrigger: {
+        score: parsed.metrics?.emotional_trigger?.score ?? 0,
+        label: parsed.metrics?.emotional_trigger?.label ?? "",
+        dominantEmotion: parsed.metrics?.emotional_trigger?.dominant_emotion ?? "",
+        analysis: parsed.metrics?.emotional_trigger?.analysis ?? "",
+        amplificationTip: parsed.metrics?.emotional_trigger?.amplification_tip ?? ""
+      },
+      pacing: {
+        score: parsed.metrics?.pacing?.score ?? 0,
+        label: parsed.metrics?.pacing?.label ?? "",
+        analysis: parsed.metrics?.pacing?.analysis ?? "",
+        recommendation: parsed.metrics?.pacing?.recommendation ?? ""
+      },
+      callToAction: {
+        score: parsed.metrics?.call_to_action?.score ?? 0,
+        label: parsed.metrics?.call_to_action?.label ?? "",
+        analysis: parsed.metrics?.call_to_action?.analysis ?? "",
+        improvedCta: parsed.metrics?.call_to_action?.improved_cta ?? ""
+      },
+      trendingRelevance: {
+        score: parsed.metrics?.trending_relevance?.score ?? 0,
+        label: parsed.metrics?.trending_relevance?.label ?? "",
+        analysis: parsed.metrics?.trending_relevance?.analysis ?? ""
+      }
+    },
 
-  if (params.platform === "YouTube") {
-    weightedScore = 
-      (result.hookStrength * (weights.hook || 0.35)) +
-      (result.thumbnailRating * (weights.visual || 0.25)) +
-      (result.emotionalTrigger * (weights.emotion || 0.20)) +
-      (result.trendingRelevance * (weights.trend || 0.10)) +
-      (result.callToAction * (weights.cta || 0.10));
-  } else {
-    weightedScore = 
-      (result.hookStrength * (weights.hook || 0.20)) +
-      (result.trendingRelevance * (weights.trend || 0.20)) +
-      (result.emotionalTrigger * (weights.emotion || 0.20)) +
-      (result.captionClarity * (weights.caption || 0.20)) +
-      (result.callToAction * (weights.cta || 0.20));
-  }
+    hashtagsNew: {
+      primary: parsed.hashtags?.primary ?? [],
+      secondary: parsed.hashtags?.secondary ?? [],
+      niche: parsed.hashtags?.niche ?? [],
+      strategy: parsed.hashtags?.strategy ?? ""
+    },
 
-  result.overallScore = Math.round(weightedScore);
-  result.scoreLabel = getScoreLabel(result.overallScore);
-  result.platform = params.platform;
+    trendingAudioNew: {
+      audioType: parsed.trending_audio?.audio_type ?? "",
+      energyMatch: parsed.trending_audio?.energy_match ?? "",
+      whyItWorks: parsed.trending_audio?.why_it_works ?? "",
+      platformTip: parsed.trending_audio?.platform_tip ?? "",
+      sampleSearchTerms: parsed.trending_audio?.sample_search_terms ?? []
+    },
 
-  return result;
+    competitorBenchmarkNew: {
+      contentTier: parsed.competitor_benchmark?.content_tier ?? "",
+      percentileEstimate: parsed.competitor_benchmark?.percentile_estimate ?? 0,
+      howYouCompare: parsed.competitor_benchmark?.how_you_compare ?? "",
+      topPerformerTraits: parsed.competitor_benchmark?.top_performer_traits ?? [],
+      gapAnalysis: parsed.competitor_benchmark?.gap_analysis ?? ""
+    },
+
+    top3Actions: parsed.top_3_actions?.map((a: any) => ({
+      priority: a.priority ?? 1,
+      action: a.action ?? "",
+      expectedImpact: a.expected_impact ?? ""
+    })) ?? [],
+
+    platformSpecificTips: parsed.platform_specific_tips ?? [],
+
+    postingStrategy: {
+      bestTime: parsed.posting_strategy?.best_time ?? "",
+      contentFormat: parsed.posting_strategy?.content_format ?? "",
+      crossPlatformPotential: parsed.posting_strategy?.cross_platform_potential ?? ""
+    }
+  };
+
+  return mappedResult;
 }
