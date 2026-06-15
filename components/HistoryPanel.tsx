@@ -55,18 +55,61 @@ const PLATFORM_EMOJI: Record<string, string> = {
 
 // ── Score Colors ──────────────────────────────────────────────────────────────
 
-function getScoreColor(score: number): string {
+const SCORE_COLOR_MAP: Record<string, string> = {
+  red: "text-red-400",
+  orange: "text-orange-400",
+  yellow: "text-yellow-400",
+  lime: "text-lime-400",
+  green: "text-[#00ff87]",
+};
+
+const SCORE_BG_MAP: Record<string, string> = {
+  red: "bg-red-500",
+  orange: "bg-orange-500",
+  yellow: "bg-yellow-500",
+  lime: "bg-[#84cc16]",
+  green: "bg-[#00ff87]",
+};
+
+const SCORE_BORDER_MAP: Record<string, string> = {
+  red: "hover:border-red-950/40",
+  orange: "hover:border-orange-900/40",
+  yellow: "hover:border-yellow-900/40",
+  lime: "hover:border-lime-900/40",
+  green: "hover:border-[#00ff87]/20",
+};
+
+function getScoreColor(score: number, scoreColor?: string): string {
+  if (scoreColor && SCORE_COLOR_MAP[scoreColor]) {
+    return SCORE_COLOR_MAP[scoreColor];
+  }
   if (score >= 90) return "text-[#00ff87]";
-  if (score >= 70) return "text-green-400";
-  if (score >= 40) return "text-yellow-400";
+  if (score >= 75) return "text-lime-400";
+  if (score >= 60) return "text-yellow-400";
+  if (score >= 40) return "text-orange-400";
   return "text-red-400";
 }
 
-function getBgColor(score: number): string {
+function getBgColor(score: number, scoreColor?: string): string {
+  if (scoreColor && SCORE_BG_MAP[scoreColor]) {
+    return SCORE_BG_MAP[scoreColor];
+  }
   if (score >= 90) return "bg-[#00ff87]";
-  if (score >= 70) return "bg-[#00ff87]"; // User wanted 70+ to be electric green
-  if (score >= 40) return "bg-yellow-500";
+  if (score >= 75) return "bg-[#84cc16]";
+  if (score >= 60) return "bg-[#eab308]";
+  if (score >= 40) return "bg-[#f97316]";
   return "bg-red-500";
+}
+
+function getBorderHoverColor(score: number, scoreColor?: string): string {
+  if (scoreColor && SCORE_BORDER_MAP[scoreColor]) {
+    return SCORE_BORDER_MAP[scoreColor];
+  }
+  if (score >= 90) return "hover:border-[#00ff87]/20";
+  if (score >= 75) return "hover:border-lime-900/40";
+  if (score >= 60) return "hover:border-yellow-900/40";
+  if (score >= 40) return "hover:border-orange-900/40";
+  return "hover:border-red-950/40";
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -175,7 +218,10 @@ export default function HistoryPanel({
                 history.map((entry) => (
                   <div
                     key={entry.id}
-                    className="bg-[#1a1a1a] border border-[#222] rounded-xl p-4 hover:border-[#00ff87]/20 transition-all group flex flex-col gap-3"
+                    className={`bg-[#1a1a1a] border border-[#222] rounded-xl p-4 transition-all group flex flex-col gap-3 ${getBorderHoverColor(
+                      entry.result.overallScore,
+                      entry.result.scoreColor
+                    )}`}
                   >
                     {/* ROW 1 */}
                     <div className="flex items-center justify-between text-[#888] text-xs">
@@ -191,7 +237,8 @@ export default function HistoryPanel({
                       <div className="flex-shrink-0 flex flex-col items-center justify-center">
                         <span
                           className={`font-display text-4xl leading-none ${getScoreColor(
-                            entry.result.overallScore
+                            entry.result.overallScore,
+                            entry.result.scoreColor
                           )}`}
                         >
                           {entry.result.overallScore}
@@ -200,7 +247,8 @@ export default function HistoryPanel({
                       <div className="flex-1 min-w-0 flex flex-col items-start gap-1">
                         <span
                           className={`text-[10px] uppercase tracking-widest font-bold px-2 py-0.5 rounded-full border border-current ${getScoreColor(
-                            entry.result.overallScore
+                            entry.result.overallScore,
+                            entry.result.scoreColor
                           )} bg-opacity-10`}
                         >
                           {entry.result.scoreLabel}

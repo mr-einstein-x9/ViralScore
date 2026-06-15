@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Loader2, Upload, X, FileVideo, FileImage, AlertCircle } from "lucide-react";
+import { Loader2, Upload, X, FileVideo, FileImage, AlertCircle, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -20,7 +20,27 @@ interface AnalyzeData {
 interface UploadPanelProps {
   onAnalyze: (data: AnalyzeData) => void;
   isLoading: boolean;
+  collapsed?: boolean;
+  onExpand?: () => void;
+  overallScore?: number;
+  scoreColor?: "red" | "orange" | "yellow" | "lime" | "green";
 }
+
+const PLATFORM_EMOJI: Record<string, string> = {
+  TikTok:     "🎵",
+  Instagram:  "📸",
+  YouTube:    "▶️",
+  LinkedIn:   "💼",
+  "Twitter/X": "𝕏",
+};
+
+const MINI_COLOR_THEMES: Record<string, string> = {
+  red: "#ef4444",
+  orange: "#f97316",
+  yellow: "#eab308",
+  lime: "#84cc16",
+  green: "#00ff87"
+};
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -54,7 +74,7 @@ const SHAKE_STYLE = `
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function UploadPanel({ onAnalyze, isLoading }: UploadPanelProps) {
+export default function UploadPanel({ onAnalyze, isLoading, collapsed, onExpand, overallScore, scoreColor }: UploadPanelProps) {
   const [platform, setPlatform] = useState<Platform>("TikTok");
   const [activeTab, setActiveTab] = useState<ContentType | "upload">("upload");
   const [caption, setCaption] = useState("");
@@ -187,6 +207,50 @@ export default function UploadPanel({ onAnalyze, isLoading }: UploadPanelProps) 
   const inputBorderClass = validationError
     ? "border-[#ff3d00]"
     : "border-[#222] focus:border-[#00ff87]";
+
+  if (collapsed) {
+    const pEmoji = PLATFORM_EMOJI[platform] ?? "📊";
+    const strokeColor = scoreColor ? MINI_COLOR_THEMES[scoreColor] : "#00ff87";
+
+    return (
+      <div className="flex flex-col items-center gap-6 py-4 w-full h-full min-h-[300px]">
+        {/* Chevron Expand Button */}
+        <button
+          onClick={onExpand}
+          className="p-2 bg-[#1a1a1a] hover:bg-[#222] border border-[#333] hover:border-[#00ff87] text-[#888] hover:text-[#00ff87] rounded-xl transition-all duration-200"
+          title="Expand Settings / Edit"
+        >
+          <ChevronRight size={18} />
+        </button>
+
+        {/* Mini Score Ring */}
+        <div className="relative w-12 h-12 flex items-center justify-center my-2 select-none">
+          <svg width={48} height={48} viewBox="0 0 48 48" className="-rotate-90">
+            <circle cx={24} cy={24} r={18} fill="none" stroke="#222" strokeWidth={3} />
+            <circle
+              cx={24} cy={24} r={18} fill="none"
+              stroke={strokeColor}
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeDasharray={2 * Math.PI * 18}
+              strokeDashoffset={2 * Math.PI * 18 * (1 - (overallScore || 0) / 100)}
+            />
+          </svg>
+          <span className="absolute text-[10px] font-display font-bold text-white">
+            {overallScore}
+          </span>
+        </div>
+
+        {/* Platform Emoji */}
+        <div 
+          className="w-10 h-10 rounded-full bg-[#1a1a1a] border border-[#222] flex items-center justify-center text-lg shadow-sm"
+          title={`Platform: ${platform}`}
+        >
+          {pEmoji}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">

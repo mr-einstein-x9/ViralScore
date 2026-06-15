@@ -61,8 +61,8 @@ const PLATFORM_EMOJI: Record<string, string> = {
 // ── Result animation variants ─────────────────────────────────────────────────
 
 const resultContainerVariants = {
-  hidden:  {},
-  visible: { transition: { staggerChildren: 0.15 } },
+  hidden:  { opacity: 0, x: 12 },
+  visible: { opacity: 1, x: 0, transition: { duration: 0.35, ease: "easeOut", staggerChildren: 0.15 } },
 };
 
 const resultItemVariants = {
@@ -166,6 +166,7 @@ export default function AnalyzePage() {
   const [isLoading, setIsLoading]           = useState(false);
   const [error, setError]                   = useState<string | null>(null);
   const [hasAnalyzed, setHasAnalyzed]       = useState(false);
+  const [resultsExpanded, setResultsExpanded] = useState(false);
   
   // History state
   const [historyOpen, setHistoryOpen]       = useState(false);
@@ -179,14 +180,29 @@ export default function AnalyzePage() {
   const loadingMessage = useCyclingMessage(LOADING_MESSAGES, isLoading);
   const resultsRef     = useRef<HTMLDivElement>(null);
 
-  // Load history count
+  const leftPanelClass = resultsExpanded
+    ? "w-full md:w-[72px] transition-all duration-[350ms] ease-in-out opacity-40 md:opacity-60 overflow-hidden pointer-events-none md:pointer-events-auto"
+    : "w-full md:w-1/2 transition-all duration-[350ms] ease-in-out opacity-100 pointer-events-auto";
+
+  const rightPanelClass = resultsExpanded
+    ? "w-full md:w-[calc(100%-72px)] transition-all duration-[350ms] ease-in-out opacity-100"
+    : "w-full md:w-1/2 transition-all duration-[350ms] ease-in-out";
+
+  // Load history count and handle custom openHistory event
   useEffect(() => {
     function updateCount() {
       setHistoryCount(getHistory().length);
     }
+    const handleOpenHistory = () => {
+      setHistoryOpen(true);
+    };
     updateCount();
     window.addEventListener("historyUpdated", updateCount);
-    return () => window.removeEventListener("historyUpdated", updateCount);
+    window.addEventListener("openHistory", handleOpenHistory);
+    return () => {
+      window.removeEventListener("historyUpdated", updateCount);
+      window.removeEventListener("openHistory", handleOpenHistory);
+    };
   }, []);
 
   // Mobile: scroll results into view after analysis
@@ -226,6 +242,7 @@ export default function AnalyzePage() {
       
       const resultData = json as ViralAnalysis;
       setAnalysisResult(resultData);
+      setResultsExpanded(true);
       setAnalysisTimestamp(Date.now());
 
       // Save to history
@@ -248,6 +265,7 @@ export default function AnalyzePage() {
   
   const handleRestore = (entry: HistoryEntry) => {
     setAnalysisResult(entry.result);
+    setResultsExpanded(true);
     setLastContent(entry.contentPreview);
     setAnalysisTimestamp(entry.timestamp);
     setHasAnalyzed(true);
@@ -261,6 +279,7 @@ export default function AnalyzePage() {
   function handleReset() {
     setError(null);
     setAnalysisResult(null);
+    setResultsExpanded(false);
     setHasAnalyzed(false);
     setIsLoading(false);
   }
@@ -403,8 +422,19 @@ export default function AnalyzePage() {
           animate="visible"
           className="flex flex-col gap-5"
         >
-          {/* Share Score Button */}
-          <div className="flex justify-end">
+          {/* Share Score Button + Edit Button on Mobile */}
+          <div className="sticky top-[64px] md:relative z-20 flex justify-between items-center mb-2 md:mb-0 bg-[#0a0a0a]/95 backdrop-blur-sm md:bg-transparent py-2 md:py-0">
+            {resultsExpanded && (
+              <button
+                onClick={() => setResultsExpanded(false)}
+                className="md:hidden bg-[#1a1a1a] border border-[#333] text-[#888] 
+                           hover:border-[#00ff87] hover:text-[#00ff87]
+                           px-4 py-2 rounded-xl text-sm flex items-center gap-2 transition-all font-semibold"
+              >
+                <span>← Edit</span>
+              </button>
+            )}
+            <div className="flex-grow" />
             <button
               onClick={() => setShareOpen(true)}
               className="bg-[#1a1a1a] border border-[#333] text-[#888] 
@@ -544,35 +574,29 @@ export default function AnalyzePage() {
               Get your virality score in seconds. Powered by Groq Llama 3.3.
             </p>
           </div>
-          
-          {/* History Button */}
-          <button
-            onClick={() => setHistoryOpen(true)}
-            className="border border-[#222] text-[#888] hover:border-[#00ff87] hover:text-[#00ff87] 
-                       px-4 py-2 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors self-start sm:self-auto"
-          >
-            <Clock size={16} />
-            <span>History</span>
-            {historyCount > 0 && (
-              <span className="bg-[#00ff87] text-black text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
-                {historyCount}
-              </span>
-            )}
-          </button>
         </div>
 
-        {/* Two-column layout: stacks on mobile, side-by-side on desktop */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
+        {/* Two-column layout: stacks on mobile, side-by-side on desktop with flex transition */}
+        <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-start w-full relative">
 
           {/* Left — Upload Panel (sticky on desktop) */}
-          <div className="lg:sticky lg:top-20">
-            <div className="bg-[#111] border border-[#222] rounded-2xl p-4 sm:p-6">
-              <UploadPanel onAnalyze={handleAnalyze} isLoading={isLoading} />
+          <div className={`${leftPanelClass} md:sticky md:top-20`}>
+            <div className={`bg-[#111] border border-[#222] rounded-2xl transition-all duration-[350ms] ${
+              resultsExpanded ? "p-2 sm:p-3" : "p-4 sm:p-6"
+            }`}>
+              <UploadPanel
+                onAnalyze={handleAnalyze}
+                isLoading={isLoading}
+                collapsed={resultsExpanded}
+                onExpand={() => setResultsExpanded(false)}
+                overallScore={analysisResult?.overallScore}
+                scoreColor={analysisResult?.scoreColor}
+              />
             </div>
           </div>
 
           {/* Right — Results */}
-          <div ref={resultsRef} className="min-h-[360px] lg:min-h-[400px]">
+          <div ref={resultsRef} className={`${rightPanelClass} min-h-[360px] md:min-h-[400px]`}>
             <AnimatePresence mode="wait">
               {renderRightColumn()}
             </AnimatePresence>
