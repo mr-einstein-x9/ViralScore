@@ -26,7 +26,7 @@ AI analyzes your content across 6 key virality signals and returns:
 |-------|-----------|
 | Framework | Next.js 14 (App Router) |
 | Styling | Tailwind CSS 3.4 |
-| AI | Groq Llama 3.3 70B via `groq-sdk` |
+| AI | Groq API (`openai/gpt-oss-120b` or configurable via `GROQ_MODEL`) |
 | Animations | Framer Motion 11 |
 | Icons | Lucide React |
 | Charts | Recharts |
@@ -66,6 +66,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | Variable | Description |
 |----------|-------------|
 | `GROQ_API_KEY` | Your Groq API key (required) |
+| `GROQ_MODEL` | (Optional) Groq model name (default: `openai/gpt-oss-120b`, or `openai/gpt-oss-20b`, `qwen/qwen3.8-27b`) |
 | `NEXT_PUBLIC_APP_URL` | App base URL (default: `http://localhost:3000`) |
 
 > ⚠️ Never commit `.env.local` — it's in `.gitignore`.

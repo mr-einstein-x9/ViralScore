@@ -431,12 +431,14 @@ Analyze this content and return the JSON.
   let rawText = "";
 
   try {
+    const model = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
+
     const chatCompletion = await groq.chat.completions.create({
       messages: [
         { role: "system", content: systemInstruction },
         { role: "user", content: userPrompt }
       ],
-      model: "llama-3.3-70b-versatile",
+      model,
       temperature: 0.4, // low temp = consistent, calibrated scores
       max_tokens: 2000,
       response_format: { type: "json_object" } // force JSON mode

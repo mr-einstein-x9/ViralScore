@@ -103,7 +103,7 @@ const steps = [
   {
     icon: Zap,
     title: "AI Analyzes It",
-    desc: "Groq Llama 3 AI scores 6 key virality metrics instantly",
+    desc: "Groq AI scores 6 key virality metrics instantly",
     number: "02",
   },
   {
@@ -424,7 +424,7 @@ export default function HomePage() {
           <div className="flex items-center gap-2 text-[#888] text-xs font-medium">
             <span>Powered by</span>
             <span className="text-[#00ff87] font-semibold">
-              Groq Llama 3.3
+              Groq AI
             </span>
           </div>
         </div>
