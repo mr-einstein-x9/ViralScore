@@ -571,7 +571,7 @@ export default function AnalyzePage() {
               <span className="text-[#00ff87]">Content</span>
             </h1>
             <p className="text-[#555] text-sm mt-2">
-              Get your virality score in seconds. Powered by Groq Llama 3.3.
+              Get your virality score in seconds. Powered by Groq AI.
             </p>
           </div>
         </div>
